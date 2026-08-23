@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, RefreshCw, ChevronLeft, ChevronRight, HelpCircle, Check, BookOpen, AlertCircle } from 'lucide-react';
+import { 
+  Loader2, 
+  RefreshCw, 
+  ChevronLeft, 
+  ChevronRight, 
+  HelpCircle, 
+  Check, 
+  BookOpen, 
+  AlertCircle, 
+  Star, 
+  Shuffle, 
+  Printer, 
+  TrendingUp 
+} from 'lucide-react';
 import { aiService } from '../services/ai';
 
 export default function FlashcardsView({ 
@@ -10,13 +23,58 @@ export default function FlashcardsView({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Card index references (shuffled or standard)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  
-  // Track master state locally for the current deck
-  const [masteredCards, setMasteredCards] = useState({}); // { [index]: true }
+  const [starFilter, setStarFilter] = useState(false);
+  const [order, setOrder] = useState([]); // indices order array
 
-  const cards = activeDoc?.flashcards || [];
+  // Leitner & Star state from LocalStorage
+  // Schema: { [docName]: { [cardQuestion]: { level: 1-5, starred: boolean } } }
+  const [leitnerData, setLeitnerData] = useState({});
+
+  // Tinder Swipe drag state
+  const [dragStartX, setDragStartX] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const rawCards = activeDoc?.flashcards || [];
+
+  // Filter and sort cards based on options
+  const getProcessedCards = () => {
+    let list = rawCards.map((card, idx) => ({ ...card, originalIndex: idx }));
+    
+    // Apply star filter
+    if (starFilter) {
+      list = list.filter(c => {
+        const key = `${activeDoc.name}_${c.question}`;
+        return leitnerData[key]?.starred === true;
+      });
+    }
+
+    // Apply order
+    if (order.length === list.length) {
+      list = order.map(idx => list.find(c => c.originalIndex === idx)).filter(Boolean);
+    }
+    
+    return list;
+  };
+
+  const processedCards = getProcessedCards();
+  const currentCard = processedCards[currentIndex] || null;
+
+  const loadLeitnerData = () => {
+    try {
+      const data = JSON.parse(localStorage.getItem('eduai_leitner_data') || '{}');
+      setLeitnerData(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    loadLeitnerData();
+  }, [activeDoc?.name]);
 
   const fetchFlashcards = async (force = false) => {
     if (!activeDoc || !apiKeyConfig) return;
@@ -26,7 +84,7 @@ export default function FlashcardsView({
     setError('');
     setIsFlipped(false);
     setCurrentIndex(0);
-    setMasteredCards({});
+    setOrder([]);
 
     try {
       const result = await aiService.generateFlashcards(
@@ -47,14 +105,54 @@ export default function FlashcardsView({
 
   useEffect(() => {
     fetchFlashcards();
-    // Reset state on document change
     setIsFlipped(false);
     setCurrentIndex(0);
-    setMasteredCards({});
+    setOrder([]);
   }, [activeDoc?.name]);
 
+  const updateCardState = (question, fields) => {
+    const key = `${activeDoc.name}_${question}`;
+    const newLeitner = {
+      ...leitnerData,
+      [key]: {
+        ...(leitnerData[key] || { level: 1, starred: false }),
+        ...fields
+      }
+    };
+    setLeitnerData(newLeitner);
+    localStorage.setItem('eduai_leitner_data', JSON.stringify(newLeitner));
+
+    // Propagate stats
+    const totalMastered = Object.values(newLeitner).filter(v => v.level === 5).length;
+    if (onMasteryUpdated) onMasteryUpdated(totalMastered);
+  };
+
+  const handleLevelUp = () => {
+    if (!currentCard) return;
+    const currentInfo = leitnerData[`${activeDoc.name}_${currentCard.question}`] || { level: 1, starred: false };
+    const nextLevel = Math.min(5, currentInfo.level + 1);
+    
+    updateCardState(currentCard.question, { level: nextLevel });
+    handleNext();
+  };
+
+  const handleLevelDown = () => {
+    if (!currentCard) return;
+    // Demote back to level 1 for active practice
+    updateCardState(currentCard.question, { level: 1 });
+    handleNext();
+  };
+
+  const toggleStar = (e) => {
+    e.stopPropagation();
+    if (!currentCard) return;
+    const currentInfo = leitnerData[`${activeDoc.name}_${currentCard.question}`] || { level: 1, starred: false };
+    
+    updateCardState(currentCard.question, { starred: !currentInfo.starred });
+  };
+
   const handleNext = () => {
-    if (currentIndex < cards.length - 1) {
+    if (currentIndex < processedCards.length - 1) {
       setIsFlipped(false);
       setTimeout(() => {
         setCurrentIndex(prev => prev + 1);
@@ -71,16 +169,97 @@ export default function FlashcardsView({
     }
   };
 
-  const toggleMastered = (index) => {
-    const isNowMastered = !masteredCards[index];
-    const updated = { ...masteredCards, [index]: isNowMastered };
-    setMasteredCards(updated);
-
-    // Report mastery update to parent context
-    if (onMasteryUpdated) {
-      const totalMastered = Object.values(updated).filter(Boolean).length;
-      onMasteryUpdated(totalMastered);
+  const handleShuffle = () => {
+    const indices = processedCards.map(c => c.originalIndex);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
     }
+    setOrder(indices);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  };
+
+  // Tinder Swipe Gesture Handlers
+  const handleTouchStart = (e) => {
+    setDragStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    if (dragStartX === null) return;
+    const currentX = e.touches[0].clientX;
+    setDragOffset(currentX - dragStartX);
+  };
+
+  const handleTouchEnd = () => {
+    if (dragStartX === null) return;
+    triggerSwipeResult();
+  };
+
+  const handleMouseDown = (e) => {
+    setDragStartX(e.clientX);
+  };
+
+  const handleMouseMove = (e) => {
+    if (dragStartX === null) return;
+    setDragOffset(e.clientX - dragStartX);
+  };
+
+  const handleMouseUp = () => {
+    if (dragStartX === null) return;
+    triggerSwipeResult();
+  };
+
+  const triggerSwipeResult = () => {
+    if (dragOffset > 130) {
+      // Swiped Right - Mastered (Level Up)
+      handleLevelUp();
+    } else if (dragOffset < -130) {
+      // Swiped Left - Needs Practice (Level Down)
+      handleLevelDown();
+    }
+    setDragStartX(null);
+    setDragOffset(0);
+  };
+
+  // A4 Printable Sheet
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    let cardsHtml = '';
+    rawCards.forEach((c, idx) => {
+      cardsHtml += `
+        <div style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 15px; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: space-between; height: 180px;">
+          <div>
+            <span style="font-size: 10px; font-weight: bold; color: #4f46e5; text-transform: uppercase; background: #e0e7ff; padding: 2px 6px; border-radius: 4px;">${c.category || 'Ders Notu'}</span>
+            <h4 style="font-size: 14px; margin-top: 10px; font-weight: bold; color: #1e293b;">Soru: ${c.question}</h4>
+          </div>
+          <div style="border-top: 1px dashed #cbd5e1; padding-top: 8px; font-size: 12px; color: #475569;">
+            Cevap: ${c.answer}
+          </div>
+        </div>
+      `;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${activeDoc.name} - Bilgi Kartları</title>
+          <style>
+            body { font-family: system-ui, sans-serif; margin: 30px; }
+            h2 { text-align: center; color: #1e293b; margin-bottom: 20px; }
+            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 15px; }
+          </style>
+        </head>
+        <body>
+          <h2>🎓 ${activeDoc.name} - Yazdırılabilir Bilgi Kartları</h2>
+          <div class="grid">${cardsHtml}</div>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   if (!apiKeyConfig) {
@@ -124,82 +303,178 @@ export default function FlashcardsView({
     );
   }
 
-  if (cards.length === 0) return null;
+  if (processedCards.length === 0) {
+    return (
+      <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center max-w-md mx-auto shadow-sm">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <h3 className="font-bold text-slate-800 text-lg mb-2">Kart Bulunamadı</h3>
+        <p className="text-xs text-slate-500 mb-6">
+          {starFilter ? 'Yıldızlı kartınız bulunmamaktadır. Çalışırken kartları yıldızlayarak favorilere ekleyebilirsiniz.' : 'Kart destesi boş.'}
+        </p>
+        {starFilter && (
+          <button
+            onClick={() => setStarFilter(false)}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+          >
+            Filtreyi Kaldır
+          </button>
+        )}
+      </div>
+    );
+  }
 
-  const currentCard = cards[currentIndex];
-  const totalMasteredCount = Object.values(masteredCards).filter(Boolean).length;
-  const masteryPercentage = Math.round((totalMasteredCount / cards.length) * 100);
+  // Leitner level configurations
+  const cardLeitnerInfo = currentCard ? (leitnerData[`${activeDoc.name}_${currentCard.question}`] || { level: 1, starred: false }) : { level: 1, starred: false };
+  const starsArray = Array(5).fill(0);
+
+  // Swipe animation variables
+  const swipeStyle = dragStartX !== null ? {
+    transform: `translateX(${dragOffset}px) rotate(${dragOffset * 0.04}deg)`,
+    transition: 'none'
+  } : {
+    transform: 'none',
+    transition: 'transform 0.25s ease'
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header Info */}
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-800">Otomatik Bilgi Kartları (Flashcards)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Önemli tanımları ve terimleri aktif geri çağırma ile öğrenin.</p>
+          <h2 className="text-lg font-bold text-slate-800">Otomatik Bilgi Kartları</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Tinder kaydırma hareketleriyle ve Leitner sistemiyle ders tekrarı yapın.</p>
         </div>
         
-        <button
-          onClick={() => fetchFlashcards(true)}
-          className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-500 transition"
-          title="Kartları Yeniden Üret"
-        >
-          <RefreshCw className="w-4.5 h-4.5" />
-        </button>
+        <div className="flex gap-2">
+          {/* Star Filter */}
+          <button
+            onClick={() => { setStarFilter(!starFilter); setCurrentIndex(0); }}
+            className={`p-2 border rounded-xl transition ${
+              starFilter 
+                ? 'bg-amber-50 border-amber-200 text-amber-600' 
+                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
+            title="Sadece Yıldızlıları Göster"
+          >
+            <Star className={`w-4.5 h-4.5 ${starFilter ? 'fill-amber-500 text-amber-500' : ''}`} />
+          </button>
+          
+          {/* Shuffle */}
+          <button
+            onClick={handleShuffle}
+            className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-500 transition"
+            title="Kartları Karıştır"
+          >
+            <Shuffle className="w-4.5 h-4.5" />
+          </button>
+
+          {/* Print */}
+          <button
+            onClick={handlePrint}
+            className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-500 transition"
+            title="Deste Çalışma Kağıdını Yazdır"
+          >
+            <Printer className="w-4.5 h-4.5" />
+          </button>
+          
+          {/* Regenerate */}
+          <button
+            onClick={() => fetchFlashcards(true)}
+            className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-500 transition"
+            title="Kartları Yeniden Üret"
+          >
+            <RefreshCw className="w-4.5 h-4.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Mastery Progress Bar */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-2">
-        <div className="flex justify-between text-xs font-semibold text-slate-700">
-          <span>Ezberleme İlerlemesi</span>
-          <span className="text-emerald-600">{totalMasteredCount} / {cards.length} Kart Öğrenildi ({masteryPercentage}%)</span>
-        </div>
-        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-          <div 
-            className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${masteryPercentage}%` }}
-          ></div>
-        </div>
+      {/* Swipe hints */}
+      <div className="flex justify-between text-[11px] text-slate-400 font-semibold px-2">
+        <span className="flex items-center gap-1">← Sola Kaydır (Tekrar Çalış)</span>
+        <span className="flex items-center gap-1">Sağa Kaydır (Öğrendim) →</span>
       </div>
 
       {/* Flashcard Area */}
       <div 
-        onClick={() => setIsFlipped(!isFlipped)}
-        className="w-full h-80 perspective-1000 cursor-pointer"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className="w-full h-80 perspective-1000 select-none relative overflow-visible"
       >
-        <div className={`relative w-full h-full duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+        {/* Swipe Indicators */}
+        {dragStartX !== null && dragOffset > 40 && (
+          <div className="absolute top-4 right-4 z-10 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg rotate-12 pointer-events-none shadow-md">
+            ÖĞRENDİM
+          </div>
+        )}
+        {dragStartX !== null && dragOffset < -40 && (
+          <div className="absolute top-4 left-4 z-10 bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg -rotate-12 pointer-events-none shadow-md">
+            TEKRAR ÇALIŞ
+          </div>
+        )}
+
+        <div 
+          onClick={() => setIsFlipped(!isFlipped)}
+          style={swipeStyle}
+          className={`relative w-full h-full duration-500 transform-style-3d cursor-pointer shadow-sm hover:shadow-md rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}
+        >
           
           {/* Front of Card */}
-          <div className="absolute inset-0 bg-white border border-slate-150 rounded-3xl p-8 flex flex-col justify-between shadow-sm backface-hidden">
+          <div className="absolute inset-0 bg-white border border-slate-150 rounded-3xl p-8 flex flex-col justify-between backface-hidden">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                 {currentCard.category || 'Ders Notu'}
               </span>
-              <span className="text-xs font-semibold text-slate-400">Ön Yüz (Soru)</span>
+              
+              {/* Star and Leitner Level */}
+              <div className="flex items-center gap-2">
+                {/* Leitner Level stars */}
+                <div className="flex items-center gap-0.5" title={`Leitner Seviyesi: ${cardLeitnerInfo.level}`}>
+                  {starsArray.map((_, i) => (
+                    <TrendingUp 
+                      key={i} 
+                      className={`w-3.5 h-3.5 ${
+                        i < cardLeitnerInfo.level ? 'text-indigo-600' : 'text-slate-200'
+                      }`} 
+                    />
+                  ))}
+                </div>
+
+                <button
+                  onClick={toggleStar}
+                  className="p-1 rounded-lg hover:bg-slate-100 transition"
+                >
+                  <Star className={`w-4 h-4 ${cardLeitnerInfo.starred ? 'fill-amber-500 text-amber-500' : 'text-slate-400 hover:text-amber-500'}`} />
+                </button>
+              </div>
             </div>
             
             <div className="flex-1 flex items-center justify-center py-6">
-              <p className="text-lg md:text-xl font-bold text-slate-800 text-center leading-relaxed">
+              <p className="text-base md:text-lg font-bold text-slate-800 text-center leading-relaxed">
                 {currentCard.question}
               </p>
             </div>
 
-            <div className="flex justify-between items-center text-slate-400 text-xs mt-2">
-              <span className="flex items-center gap-1.5 font-medium">
-                <HelpCircle className="w-4 h-4 text-slate-400" />
-                Cevabı görmek için tıklayın
+            <div className="flex justify-between items-center text-slate-400 text-[11px] mt-2">
+              <span className="flex items-center gap-1 font-semibold">
+                <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                Cevabı görmek için tıkla
               </span>
-              <span className="font-semibold text-slate-500">{currentIndex + 1} / {cards.length}</span>
+              <span className="font-semibold text-slate-500">{currentIndex + 1} / {processedCards.length}</span>
             </div>
           </div>
 
           {/* Back of Card */}
-          <div className="absolute inset-0 bg-slate-900 border border-slate-800 rounded-3xl p-8 flex flex-col justify-between shadow-md backface-hidden rotate-y-180 text-white">
+          <div className="absolute inset-0 bg-slate-900 border border-slate-800 rounded-3xl p-8 flex flex-col justify-between backface-hidden rotate-y-180 text-white">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded-full">
                 {currentCard.category || 'Ders Notu'}
               </span>
-              <span className="text-xs font-semibold text-slate-400">Arka Yüz (Cevap)</span>
+              <span className="text-xs font-semibold text-slate-400">Cevap</span>
             </div>
             
             <div className="flex-1 flex items-center justify-center py-6 overflow-y-auto max-h-48 pr-1">
@@ -208,9 +483,9 @@ export default function FlashcardsView({
               </p>
             </div>
 
-            <div className="flex justify-between items-center text-xs mt-2">
-              <span className="text-slate-400">Filtrele veya çevirmek için tıkla</span>
-              <span className="font-semibold text-slate-400">{currentIndex + 1} / {cards.length}</span>
+            <div className="flex justify-between items-center text-[11px] mt-2">
+              <span className="text-slate-400">Çevirmek için tıkla</span>
+              <span className="font-semibold text-slate-400">{currentIndex + 1} / {processedCards.length}</span>
             </div>
           </div>
 
@@ -222,45 +497,48 @@ export default function FlashcardsView({
         {/* Navigation */}
         <div className="flex gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+            onClick={handlePrev}
             disabled={currentIndex === 0}
             className="p-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            title="Önceki Kart"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           
           <button
-            onClick={(e) => { e.stopPropagation(); handleNext(); }}
-            disabled={currentIndex === cards.length - 1}
+            onClick={handleNext}
+            disabled={currentIndex === processedCards.length - 1}
             className="p-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            title="Sonraki Kart"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Mastered/Review toggle */}
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleMastered(currentIndex); }}
-          className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition ${
-            masteredCards[currentIndex]
-              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
-              : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-700'
-          }`}
-        >
-          <Check className={`w-4.5 h-4.5 ${masteredCards[currentIndex] ? 'text-white' : 'text-slate-400'}`} />
-          <span>{masteredCards[currentIndex] ? 'Öğrenildi Olarak İşaretlendi!' : 'Öğrendim olarak işaretle'}</span>
-        </button>
+        {/* Leitner rating buttons */}
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleLevelDown}
+            className="flex-1 sm:flex-initial px-5 py-3 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+          >
+            Tekrar Çalış
+          </button>
+          
+          <button
+            onClick={handleLevelUp}
+            className="flex-1 sm:flex-initial px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-100"
+          >
+            <Check className="w-4 h-4" />
+            Öğrendim!
+          </button>
+        </div>
       </div>
 
-      {/* Active recall study tip */}
+      {/* Leitner Box system info card */}
       <div className="bg-indigo-50/30 border border-indigo-100/50 rounded-2xl p-4 flex gap-3">
         <BookOpen className="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" />
         <div>
-          <h5 className="text-xs font-bold text-indigo-900">Aktif Hatırlama (Active Recall) İpucu</h5>
+          <h5 className="text-xs font-bold text-indigo-900">Leitner Öğrenme Sistemi</h5>
           <p className="text-[11px] text-slate-500 leading-normal mt-0.5">
-            Kartın arkasını çevirmeden önce cevabı sesli olarak söylemeye veya kağıda yazmaya çalışın. Bu, nöral bağları güçlendirerek kalıcı öğrenmeyi sağlar.
+            Bildiğiniz kartların seviyesi artar (maks 5). Bilmediğiniz kartlar ise doğrudan 1. Seviyeye geri döner. Seviyesi 5 olan kartlar tamamen ezberlenmiş kabul edilir ve istatistiklerinize eklenir.
           </p>
         </div>
       </div>

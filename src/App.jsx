@@ -8,7 +8,10 @@ import {
   Brain, 
   Settings as SettingsIcon,
   Menu,
-  X
+  X,
+  Clock,
+  FolderOpen,
+  Minimize2
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -17,10 +20,13 @@ import FlashcardsView from './components/FlashcardsView';
 import QuizView from './components/QuizView';
 import WeaknessAnalysis from './components/WeaknessAnalysis';
 import Settings from './components/Settings';
+import ProductivityPanel from './components/ProductivityPanel';
+import ArchiveView from './components/ArchiveView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
   
   // Shared States
   const [activeDoc, setActiveDoc] = useState(null);
@@ -64,11 +70,15 @@ export default function App() {
         }
       });
 
+      // Retrieve Leitner mastered count (level === 5)
+      const leitner = JSON.parse(localStorage.getItem('eduai_leitner_data') || '{}');
+      const mastered = Object.values(leitner).filter(v => v.level === 5).length;
+
       const updatedStats = {
         questionsSolved: solved,
         questionsCorrect: correct,
         topicsStudied: allCategories.size,
-        flashcardsMastered: stats.flashcardsMastered // Keep flashcard mastery count
+        flashcardsMastered: mastered
       };
 
       setStats(updatedStats);
@@ -135,79 +145,87 @@ export default function App() {
     { id: 'flashcards', name: 'Bilgi Kartları', icon: BrainCircuit, requiresDoc: true },
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
+    { id: 'productivity', name: 'Verimlilik & Pomodoro', icon: Clock },
+    { id: 'archive', name: 'Soru Arşivi', icon: FolderOpen },
     { id: 'settings', name: 'Ayarlar', icon: SettingsIcon },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+    <div className={`min-h-screen flex flex-col md:flex-row transition-all duration-300 ${
+      isZenMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'
+    }`}>
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-100 p-6 space-y-8 flex-shrink-0">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-100">
-            <GraduationCap className="w-6 h-6" />
+      {!isZenMode && (
+        <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-100 p-6 space-y-8 flex-shrink-0">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-100">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="font-black text-slate-800 text-lg leading-tight">EduAI</h1>
+              <span className="text-[10px] text-slate-400 font-semibold tracking-wide">FIRSAT EŞİTLİĞİ</span>
+            </div>
           </div>
-          <div>
-            <h1 className="font-black text-slate-800 text-lg leading-tight">EduAI</h1>
-            <span className="text-[10px] text-slate-400 font-semibold tracking-wide">FIRSAT EŞİTLİĞİ</span>
-          </div>
-        </div>
 
-        {/* Navigation */}
-        <nav className="space-y-1.5 flex-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const disabled = item.requiresDoc && !activeDoc;
-            const active = activeTab === item.id;
+          {/* Navigation */}
+          <nav className="space-y-1.5 flex-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const disabled = item.requiresDoc && !activeDoc;
+              const active = activeTab === item.id;
 
-            return (
-              <button
-                key={item.id}
-                disabled={disabled}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
-                  disabled 
-                    ? 'opacity-40 cursor-not-allowed text-slate-400' 
-                    : active 
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100' 
-                      : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span>{item.name}</span>
-              </button>
-            );
-          })}
-        </nav>
+              return (
+                <button
+                  key={item.id}
+                  disabled={disabled}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
+                    disabled 
+                      ? 'opacity-40 cursor-not-allowed text-slate-400' 
+                      : active 
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100' 
+                        : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        {/* Active PDF Status */}
-        {activeDoc && (
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-            <span className="text-[9px] font-bold text-slate-400 uppercase">Aktif Belge</span>
-            <p className="text-xs font-semibold text-slate-700 truncate mt-0.5">{activeDoc.name}</p>
-          </div>
-        )}
-      </aside>
+          {/* Active PDF Status */}
+          {activeDoc && (
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Aktif Belge</span>
+              <p className="text-xs font-semibold text-slate-700 truncate mt-0.5">{activeDoc.name}</p>
+            </div>
+          )}
+        </aside>
+      )}
 
       {/* Header - Mobile */}
-      <header className="md:hidden bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
-            <GraduationCap className="w-5 h-5" />
+      {!isZenMode && (
+        <header className="md:hidden bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <span className="font-black text-slate-800 text-base">EduAI</span>
           </div>
-          <span className="font-black text-slate-800 text-base">EduAI</span>
-        </div>
 
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg"
-        >
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </header>
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </header>
+      )}
 
       {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && !isZenMode && (
         <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden animate-fadeIn" onClick={() => setMobileMenuOpen(false)}>
           <div 
             onClick={(e) => e.stopPropagation()}
@@ -252,14 +270,28 @@ export default function App() {
         </div>
       )}
 
+      {/* Floating Exit Zen Mode Button */}
+      {isZenMode && (
+        <button
+          onClick={() => setIsZenMode(false)}
+          className="fixed top-4 right-4 z-50 p-2.5 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white rounded-xl shadow-md flex items-center gap-2 text-xs font-bold transition"
+        >
+          <Minimize2 className="w-4 h-4" />
+          <span>Zen Çıkış</span>
+        </button>
+      )}
+
       {/* Main Content Pane */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">
+      <main className={`flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full transition-all ${
+        isZenMode ? 'pt-16 pb-16' : ''
+      }`}>
         {activeTab === 'dashboard' && (
           <Dashboard 
             onPdfExtracted={handlePdfExtracted}
             activeDoc={activeDoc}
             stats={stats}
             onChangeTab={setActiveTab}
+            apiKeyConfig={apiKeyConfig}
           />
         )}
         
@@ -294,6 +326,17 @@ export default function App() {
             activeDoc={activeDoc}
             apiKeyConfig={apiKeyConfig}
           />
+        )}
+
+        {activeTab === 'productivity' && (
+          <ProductivityPanel 
+            onZenToggle={() => setIsZenMode(!isZenMode)}
+            isZenMode={isZenMode}
+          />
+        )}
+
+        {activeTab === 'archive' && (
+          <ArchiveView />
         )}
 
         {activeTab === 'settings' && (
