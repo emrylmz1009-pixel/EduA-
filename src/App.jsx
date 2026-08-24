@@ -399,20 +399,6 @@ export default function App() {
 
   // Render Registration form if not logged in
   if (!isLoggedIn) {
-    const otpauthUri = `otpauth://totp/EduAI:${encodeURIComponent(regName.trim() || 'Ogrenci')}?secret=${regSecret}&issuer=EduAI&algorithm=SHA1&digits=6&period=30`;
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUri)}`;
-
-    const downloadRecoveryCodes = () => {
-      const text = `EduAI Kurtarma Kodları\n\nAd Soyad: ${regName}\nTarih: ${new Date().toLocaleDateString('tr-TR')}\n\nYedek Kurtarma Kodlarınız (Her biri tek kullanımlıktır):\n${regRecoveryCodes.map((c, i) => `${i+1}. ${c}`).join('\n')}\n\nLütfen bu kodları güvenli bir yerde saklayın.`;
-      const element = document.createElement("a");
-      const file = new Blob([text], {type: 'text/plain'});
-      element.href = URL.createObjectURL(file);
-      element.download = "eduai-kurtarma-kodlari.txt";
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    };
-
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -424,7 +410,7 @@ export default function App() {
             <p className="text-xs text-slate-500 mt-1">
               {regStep === 1 
                 ? "Bilgilerinizi doldurarak kayıt adımlarına başlayın." 
-                : "Telefonunuzdaki kimlik doğrulayıcı ile 2 adımlı doğrulamayı kurun."}
+                : "E-posta adresinizi doğrulayarak güvenliğinizi kurun."}
             </p>
           </div>
 

@@ -10,7 +10,6 @@ export default function Profile({ profile, onLogout, onUpdate, stats }) {
   const [schoolNumber, setSchoolNumber] = useState(profile?.schoolNumber || '');
   const [showTc, setShowTc] = useState(false);
   const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
-  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
 
   const filteredSchools = school.trim() 
     ? schoolsData.filter(s => s.name.toLowerCase().includes(school.toLowerCase())).slice(0, 5)
