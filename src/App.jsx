@@ -101,27 +101,29 @@ export default function App() {
     if (storedProfile) {
       const parsedProfile = JSON.parse(storedProfile);
       setProfile(parsedProfile);
+      setIsLoggedIn(true);
       
-      // Background IP auto login check
+      // Background IP auto login check to bypass or enforce 2FA verification
       setCheckingIp(true);
       fetch('https://api.ipify.org?format=json')
         .then(res => res.json())
         .then(data => {
-          // If IP matches the registered IP, auto-login instantly
+          // If IP matches the registered IP, auto-login and unlock instantly!
           if (data.ip === parsedProfile.ip) {
-            setIsLoggedIn(true);
+            setSessionUnlocked(true);
+            sessionStorage.setItem('eduai_session_unlocked', 'true');
           } else {
-            // If IP has changed (dynamic IP), we still let them in on local device match
-            // but we update the registered IP silently for seamless future access
-            const updatedProfile = { ...parsedProfile, ip: data.ip };
-            setProfile(updatedProfile);
-            localStorage.setItem('eduai_profile', JSON.stringify(updatedProfile));
-            setIsLoggedIn(true);
+            // IP mismatch: Lock session and require verification code
+            // Unless already unlocked in sessionStorage for this tab session
+            const wasUnlocked = sessionStorage.getItem('eduai_session_unlocked') === 'true';
+            setSessionUnlocked(wasUnlocked);
           }
         })
         .catch(err => {
-          console.error("IP check failed (offline/blocked), falling back to local login:", err);
-          setIsLoggedIn(true); // local storage fallback
+          console.error("IP check failed (offline/blocked), falling back to sessionStorage check:", err);
+          // Secure fallback: use sessionStorage state
+          const wasUnlocked = sessionStorage.getItem('eduai_session_unlocked') === 'true';
+          setSessionUnlocked(wasUnlocked);
         })
         .finally(() => {
           setCheckingIp(false);
@@ -187,9 +189,9 @@ export default function App() {
     }
   };
 
-  const handleRegisterStep1 = (e) => {
+  const handleRegisterStep1 = async (e) => {
     e.preventDefault();
-    if (!regName.trim() || !regTc.trim() || !regSchool.trim() || !regSchoolNumber.trim()) {
+    if (!regName.trim() || !regTc.trim() || !regSchool.trim() || !regSchoolNumber.trim() || !regEmail.trim()) {
       alert('Lütfen tüm alanları doldurun.');
       return;
     }
@@ -200,8 +202,26 @@ export default function App() {
       return;
     }
 
-    // Move to step 2 (Email setup)
-    setRegStep(2);
+    if (!regEmail.trim() || !regEmail.includes('@')) {
+      alert('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setOtpLoading(true);
+    // Generate 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setCurrentOtpCode(code);
+
+    try {
+      await sendVerificationEmail(regEmail.trim(), regName.trim(), code);
+      setOtpSent(true);
+      setRegStep(2);
+      alert('Doğrulama kodu e-posta adresinize gönderildi. Lütfen kodu girerek kaydınızı tamamlayın.');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   const handleSendRegOtp = async () => {
@@ -302,6 +322,17 @@ export default function App() {
     if (token === currentOtpCode) {
       setSessionUnlocked(true);
       sessionStorage.setItem('eduai_session_unlocked', 'true');
+      
+      // Update registered IP to current IP so they bypass verification next time
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          const updatedProfile = { ...profile, ip: data.ip };
+          setProfile(updatedProfile);
+          localStorage.setItem('eduai_profile', JSON.stringify(updatedProfile));
+        })
+        .catch(err => console.warn("Could not update profile IP automatically:", err));
+
       setEmailOtpInput('');
       setEmailOtpError('');
       setCurrentOtpCode('');
@@ -502,56 +533,50 @@ export default function App() {
                 />
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  🔍 Güvenlik E-postası
+                </label>
+                <input 
+                  type="email"
+                  required
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="Örn: ogrenci@okul.edu.tr"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+                disabled={otpLoading}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
               >
-                <span>İleri (Güvenlik Kurulumu)</span>
+                {otpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Kayıt Ol ve Kod Gönder</span>}
               </button>
             </form>
           ) : (
             <form onSubmit={handleRegisterStep2} className="space-y-5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                  E-posta Adresi
-                </label>
-                <div className="flex gap-2">
-                  <input 
-                    type="email"
-                    required
-                    disabled={otpSent}
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="ogrenci@okul.edu.tr"
-                    className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
-                  />
-                  <button
-                    type="button"
-                    disabled={otpLoading}
-                    onClick={handleSendRegOtp}
-                    className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? 'Tekrar Gönder' : 'Kod Gönder'}
-                  </button>
-                </div>
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                <p className="text-[11px] text-slate-600">
+                  Kayıt işlemini tamamlamak için <strong>{regEmail}</strong> adresine gönderilen 6 haneli doğrulama kodunu girin.
+                </p>
               </div>
 
-              {otpSent && (
-                <div className="animate-fadeIn">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                    6 Haneli Doğrulama Kodu
-                  </label>
-                  <input 
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={regOtpInput}
-                    onChange={(e) => setRegOtpInput(e.target.value)}
-                    placeholder="000000"
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-center text-sm outline-none focus:border-indigo-500 transition font-mono font-bold tracking-widest"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  6 Haneli Doğrulama Kodu
+                </label>
+                <input 
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={regOtpInput}
+                  onChange={(e) => setRegOtpInput(e.target.value)}
+                  placeholder="000000"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-center text-sm outline-none focus:border-indigo-500 transition font-mono font-bold tracking-widest"
+                />
+              </div>
 
               <div className="flex gap-2 pt-2">
                 <button
@@ -566,10 +591,21 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  disabled={regLoading || !otpSent}
-                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+                  disabled={regLoading}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
                 >
-                  {regLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Kayıt Ol ve Başla</span>}
+                  {regLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Kodu Doğrula ve Kaydı Tamamla</span>}
+                </button>
+              </div>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  disabled={otpLoading}
+                  onClick={handleSendRegOtp}
+                  className="text-[10px] text-indigo-600 hover:underline font-bold"
+                >
+                  {otpLoading ? 'Kod Gönderiliyor...' : 'Kodu Yeniden Gönder'}
                 </button>
               </div>
             </form>
