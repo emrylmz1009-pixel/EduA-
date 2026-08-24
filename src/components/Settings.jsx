@@ -7,6 +7,11 @@ export default function Settings({ onSettingsSaved }) {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [showKey, setShowKey] = useState(false);
+
+  // EmailJS credentials
+  const [emailJsServiceId, setEmailJsServiceId] = useState('');
+  const [emailJsTemplateId, setEmailJsTemplateId] = useState('');
+  const [emailJsPublicKey, setEmailJsPublicKey] = useState('');
   
   const [testStatus, setTestStatus] = useState('idle'); // idle, testing, success, error
   const [testMessage, setTestMessage] = useState('');
@@ -33,6 +38,10 @@ export default function Settings({ onSettingsSaved }) {
     setProvider(savedProv);
     setApiKey(savedKey);
     setModel(savedMod);
+
+    setEmailJsServiceId(localStorage.getItem('eduai_emailjs_service_id') || '');
+    setEmailJsTemplateId(localStorage.getItem('eduai_emailjs_template_id') || '');
+    setEmailJsPublicKey(localStorage.getItem('eduai_emailjs_public_key') || '');
 
     if (savedKey) {
       setSavedSettings({
@@ -62,6 +71,10 @@ export default function Settings({ onSettingsSaved }) {
     localStorage.setItem('eduai_provider', provider);
     localStorage.setItem('eduai_api_key', apiKey.trim());
     localStorage.setItem('eduai_model', model);
+
+    localStorage.setItem('eduai_emailjs_service_id', emailJsServiceId.trim());
+    localStorage.setItem('eduai_emailjs_template_id', emailJsTemplateId.trim());
+    localStorage.setItem('eduai_emailjs_public_key', emailJsPublicKey.trim());
     
     setSavedSettings({
       provider,
@@ -72,6 +85,7 @@ export default function Settings({ onSettingsSaved }) {
     if (onSettingsSaved) {
       onSettingsSaved({ provider, apiKey: apiKey.trim(), model });
     }
+    alert('Ayarlar başarıyla kaydedildi.');
   };
 
   const handleTestConnection = async () => {
@@ -102,7 +116,15 @@ export default function Settings({ onSettingsSaved }) {
       localStorage.removeItem('eduai_provider');
       localStorage.removeItem('eduai_api_key');
       localStorage.removeItem('eduai_model');
+      localStorage.removeItem('eduai_emailjs_service_id');
+      localStorage.removeItem('eduai_emailjs_template_id');
+      localStorage.removeItem('eduai_emailjs_public_key');
+
       setApiKey('');
+      setEmailJsServiceId('');
+      setEmailJsTemplateId('');
+      setEmailJsPublicKey('');
+
       setSavedSettings(null);
       setTestStatus('idle');
       setTestMessage('');
@@ -226,6 +248,47 @@ export default function Settings({ onSettingsSaved }) {
               <span>OpenAI API anahtarınızı <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-medium">OpenAI Platformu</a> üzerinden oluşturabilirsiniz.</span>
             )}
           </p>
+        </div>
+
+        {/* EmailJS Settings */}
+        <div className="border-t border-slate-100 pt-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-800">E-posta Doğrulama Ayarları (EmailJS)</h3>
+          <p className="text-[11px] text-slate-400 leading-normal">
+            Giriş doğrulamalarında gerçek 6 haneli e-posta kodları gönderebilmek için kendi <a href="https://www.emailjs.com/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-medium">EmailJS</a> hesabınızı bağlayın. Boş bırakırsanız sistem simülasyon (alert) modunda çalışacaktır.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Service ID</label>
+              <input
+                type="text"
+                value={emailJsServiceId}
+                onChange={(e) => setEmailJsServiceId(e.target.value)}
+                placeholder="service_xxxx"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition outline-none text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Template ID</label>
+              <input
+                type="text"
+                value={emailJsTemplateId}
+                onChange={(e) => setEmailJsTemplateId(e.target.value)}
+                placeholder="template_xxxx"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition outline-none text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Public Key</label>
+              <input
+                type="text"
+                value={emailJsPublicKey}
+                onChange={(e) => setEmailJsPublicKey(e.target.value)}
+                placeholder="key_xxxx"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition outline-none text-xs font-mono"
+              />
+            </div>
+          </div>
         </div>
 
         {testStatus !== 'idle' && (

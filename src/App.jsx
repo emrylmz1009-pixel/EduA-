@@ -29,6 +29,7 @@ import ProductivityPanel from './components/ProductivityPanel';
 import ArchiveView from './components/ArchiveView';
 import Profile from './components/Profile';
 import schoolsData from './data/schools.json';
+import emailjs from '@emailjs/browser';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -39,6 +40,21 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingIp, setCheckingIp] = useState(false);
+
+  // 2FA login verification states
+  const [sessionUnlocked, setSessionUnlocked] = useState(
+    sessionStorage.getItem('eduai_session_unlocked') === 'true'
+  );
+  const [emailOtpInput, setEmailOtpInput] = useState('');
+  const [emailOtpError, setEmailOtpError] = useState('');
+  const [currentOtpCode, setCurrentOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  // 2FA registration setup states
+  const [regStep, setRegStep] = useState(1); // 1: Info, 2: Email Setup
+  const [regEmail, setRegEmail] = useState('');
+  const [regOtpInput, setRegOtpInput] = useState('');
 
   // Registration form inputs
   const [regName, setRegName] = useState('');
@@ -143,7 +159,35 @@ export default function App() {
     }
   };
 
-  const handleRegister = async (e) => {
+  const sendVerificationEmail = async (email, name, code) => {
+    const serviceId = localStorage.getItem('eduai_emailjs_service_id') || import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = localStorage.getItem('eduai_emailjs_template_id') || import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = localStorage.getItem('eduai_emailjs_public_key') || import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    if (!serviceId || !templateId || !publicKey) {
+      console.log(`[SIMULATION MODE] Verification code sent to ${email}: ${code}`);
+      alert(`[Simülasyon Modu - EmailJS Ayarları Yapılmamış]\n\n${email} adresine gönderilen doğrulama kodu: ${code}`);
+      return true;
+    }
+
+    try {
+      const templateParams = {
+        to_name: name,
+        to_email: email,
+        otp_code: code,
+        app_name: 'EduAI'
+      };
+
+      await emailjs.send(serviceId, templateId, templateParams, publicKey);
+      return true;
+    } catch (error) {
+      console.error('EmailJS sending failed:', error);
+      alert('E-posta gönderilemedi. Lütfen ayarlarınızı kontrol edin veya simülasyon kodunu kullanın.');
+      throw error;
+    }
+  };
+
+  const handleRegisterStep1 = (e) => {
     e.preventDefault();
     if (!regName.trim() || !regTc.trim() || !regSchool.trim() || !regSchoolNumber.trim()) {
       alert('Lütfen tüm alanları doldurun.');
@@ -156,11 +200,48 @@ export default function App() {
       return;
     }
 
+    // Move to step 2 (Email setup)
+    setRegStep(2);
+  };
+
+  const handleSendRegOtp = async () => {
+    if (!regEmail.trim() || !regEmail.includes('@')) {
+      alert('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setOtpLoading(true);
+    // Generate 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setCurrentOtpCode(code);
+
+    try {
+      await sendVerificationEmail(regEmail.trim(), regName.trim(), code);
+      setOtpSent(true);
+      alert('Doğrulama kodu e-postanıza başarıyla gönderildi.');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleRegisterStep2 = async (e) => {
+    e.preventDefault();
+    if (!regOtpInput.trim()) {
+      alert('Lütfen doğrulama kodunu girin.');
+      return;
+    }
+
+    if (regOtpInput.trim() !== currentOtpCode) {
+      alert('Girdiğiniz kod hatalı. Lütfen e-postanıza gönderilen güncel kodu girin.');
+      return;
+    }
+
     setRegLoading(true);
     let ipAddress = '127.0.0.1';
 
     try {
-      // Fetch public IP address in the background
       const ipRes = await fetch('https://api.ipify.org?format=json');
       const ipData = await ipRes.json();
       ipAddress = ipData.ip;
@@ -173,20 +254,70 @@ export default function App() {
       tc: regTc.trim(),
       school: regSchool.trim(),
       schoolNumber: regSchoolNumber.trim(),
-      ip: ipAddress
+      ip: ipAddress,
+      email: regEmail.trim()
     };
 
     localStorage.setItem('eduai_profile', JSON.stringify(newProfile));
     setProfile(newProfile);
     setIsLoggedIn(true);
+    setSessionUnlocked(true);
+    sessionStorage.setItem('eduai_session_unlocked', 'true');
     setRegLoading(false);
+    
+    // Reset states
+    setRegStep(1);
+    setRegEmail('');
+    setRegOtpInput('');
+    setCurrentOtpCode('');
+    setOtpSent(false);
+  };
+
+  const handleSendLoginOtp = async () => {
+    if (!profile?.email) return;
+
+    setOtpLoading(true);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setCurrentOtpCode(code);
+
+    try {
+      await sendVerificationEmail(profile.email, profile.name, code);
+      setOtpSent(true);
+      alert('Doğrulama kodu e-postanıza gönderildi.');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleLoginVerification = (e) => {
+    e.preventDefault();
+    const token = emailOtpInput.trim();
+    if (!token) {
+      setEmailOtpError('Lütfen doğrulama kodunu girin.');
+      return;
+    }
+
+    if (token === currentOtpCode) {
+      setSessionUnlocked(true);
+      sessionStorage.setItem('eduai_session_unlocked', 'true');
+      setEmailOtpInput('');
+      setEmailOtpError('');
+      setCurrentOtpCode('');
+      setOtpSent(false);
+    } else {
+      setEmailOtpError('Girdiğiniz doğrulama kodu hatalı. Lütfen tekrar deneyin.');
+    }
   };
 
   const handleLogout = () => {
-    if (confirm('Oturum kapatılacaktır. Tekrar giriş yapmak için cihaz tanıma veya manuel onay gerekecektir. Emin misiniz?')) {
+    if (confirm('Oturum kapatılacaktır. Tekrar giriş yapmak için cihaz tanıma ve e-posta doğrulaması gerekecektir. Emin misiniz?')) {
       setIsLoggedIn(false);
-      // We keep the profile stored in local storage for auto-login on next visit,
-      // but logout clears the active session state.
+      setSessionUnlocked(false);
+      sessionStorage.removeItem('eduai_session_unlocked');
+      setOtpSent(false);
+      setCurrentOtpCode('');
     }
   };
 
@@ -268,6 +399,20 @@ export default function App() {
 
   // Render Registration form if not logged in
   if (!isLoggedIn) {
+    const otpauthUri = `otpauth://totp/EduAI:${encodeURIComponent(regName.trim() || 'Ogrenci')}?secret=${regSecret}&issuer=EduAI&algorithm=SHA1&digits=6&period=30`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUri)}`;
+
+    const downloadRecoveryCodes = () => {
+      const text = `EduAI Kurtarma Kodları\n\nAd Soyad: ${regName}\nTarih: ${new Date().toLocaleDateString('tr-TR')}\n\nYedek Kurtarma Kodlarınız (Her biri tek kullanımlıktır):\n${regRecoveryCodes.map((c, i) => `${i+1}. ${c}`).join('\n')}\n\nLütfen bu kodları güvenli bir yerde saklayın.`;
+      const element = document.createElement("a");
+      const file = new Blob([text], {type: 'text/plain'});
+      element.href = URL.createObjectURL(file);
+      element.download = "eduai-kurtarma-kodlari.txt";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    };
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -276,114 +421,176 @@ export default function App() {
               <GraduationCap className="w-7 h-7" />
             </div>
             <h2 className="text-xl font-black text-slate-800">EduAI Öğrenci Kaydı</h2>
-            <p className="text-xs text-slate-500 mt-1">Kaydolduktan sonra IP tanıma sistemiyle hesabınız otomatik olarak açılacaktır.</p>
+            <p className="text-xs text-slate-500 mt-1">
+              {regStep === 1 
+                ? "Bilgilerinizi doldurarak kayıt adımlarına başlayın." 
+                : "Telefonunuzdaki kimlik doğrulayıcı ile 2 adımlı doğrulamayı kurun."}
+            </p>
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                <User className="w-3.5 h-3.5" />
-                Ad Soyad
-              </label>
-              <input 
-                type="text"
-                required
-                value={regName}
-                onChange={(e) => setRegName(e.target.value)}
-                placeholder="Örn: Emir Yılmaz"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
-              />
-            </div>
+          {regStep === 1 ? (
+            <form onSubmit={handleRegisterStep1} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" />
+                  Ad Soyad
+                </label>
+                <input 
+                  type="text"
+                  required
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  placeholder="Örn: Emir Yılmaz"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
+                />
+              </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1 font-mono">
-                <Shield className="w-3.5 h-3.5" />
-                T.C. Kimlik Numarası
-              </label>
-              <input 
-                type="text"
-                required
-                maxLength={11}
-                value={regTc}
-                onChange={(e) => setRegTc(e.target.value)}
-                placeholder="11 haneli kimlik no"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition font-mono"
-              />
-            </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1 font-mono">
+                  <Shield className="w-3.5 h-3.5" />
+                  T.C. Kimlik Numarası
+                </label>
+                <input 
+                  type="text"
+                  required
+                  maxLength={11}
+                  value={regTc}
+                  onChange={(e) => setRegTc(e.target.value)}
+                  placeholder="11 haneli kimlik no"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition font-mono"
+                />
+              </div>
 
-            <div className="relative">
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                <School className="w-3.5 h-3.5" />
-                Okul Adı
-              </label>
-              <input 
-                type="text"
-                required
-                value={regSchool}
-                onChange={(e) => {
-                  setRegSchool(e.target.value);
-                  setShowSchoolSuggestions(true);
-                }}
-                onFocus={() => setShowSchoolSuggestions(true)}
-                onBlur={() => {
-                  setTimeout(() => setShowSchoolSuggestions(false), 200);
-                }}
-                placeholder="Örn: Atatürk Fen Lisesi"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
-              />
-              {showSchoolSuggestions && filteredSchools.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 text-xs overflow-hidden max-h-48">
-                  {filteredSchools.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onMouseDown={() => {
-                        setRegSchool(s.name);
-                        setShowSchoolSuggestions(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium text-slate-700 flex justify-between items-center"
-                    >
-                      <span>{s.name}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">{s.ilce}, {s.il}</span>
-                    </button>
-                  ))}
+              <div className="relative">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <School className="w-3.5 h-3.5" />
+                  Okul Adı
+                </label>
+                <input 
+                  type="text"
+                  required
+                  value={regSchool}
+                  onChange={(e) => {
+                    setRegSchool(e.target.value);
+                    setShowSchoolSuggestions(true);
+                  }}
+                  onFocus={() => setShowSchoolSuggestions(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowSchoolSuggestions(false), 200);
+                  }}
+                  placeholder="Örn: Atatürk Fen Lisesi"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
+                />
+                {showSchoolSuggestions && filteredSchools.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 text-xs overflow-hidden max-h-48">
+                    {filteredSchools.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setRegSchool(s.name);
+                          setShowSchoolSuggestions(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium text-slate-700 flex justify-between items-center"
+                      >
+                        <span>{s.name}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">{s.ilce}, {s.il}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <Hash className="w-3.5 h-3.5" />
+                  Okul Numarası
+                </label>
+                <input 
+                  type="text"
+                  required
+                  value={regSchoolNumber}
+                  onChange={(e) => setRegSchoolNumber(e.target.value)}
+                  placeholder="Örn: 482"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+              >
+                <span>İleri (Güvenlik Kurulumu)</span>
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegisterStep2} className="space-y-5">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  E-posta Adresi
+                </label>
+                <div className="flex gap-2">
+                  <input 
+                    type="email"
+                    required
+                    disabled={otpSent}
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="ogrenci@okul.edu.tr"
+                    className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
+                  />
+                  <button
+                    type="button"
+                    disabled={otpLoading}
+                    onClick={handleSendRegOtp}
+                    className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? 'Tekrar Gönder' : 'Kod Gönder'}
+                  </button>
+                </div>
+              </div>
+
+              {otpSent && (
+                <div className="animate-fadeIn">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    6 Haneli Doğrulama Kodu
+                  </label>
+                  <input 
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={regOtpInput}
+                    onChange={(e) => setRegOtpInput(e.target.value)}
+                    placeholder="000000"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-center text-sm outline-none focus:border-indigo-500 transition font-mono font-bold tracking-widest"
+                  />
                 </div>
               )}
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                <Hash className="w-3.5 h-3.5" />
-                Okul Numarası
-              </label>
-              <input 
-                type="text"
-                required
-                value={regSchoolNumber}
-                onChange={(e) => setRegSchoolNumber(e.target.value)}
-                placeholder="Örn: 482"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 transition"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={regLoading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
-            >
-              {regLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>IP Sorgulanıyor...</span>
-                </>
-              ) : (
-                <span>Kayıt Ol ve Başla</span>
-              )}
-            </button>
-          </form>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegStep(1);
+                    setOtpSent(false);
+                  }}
+                  className="px-4 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition"
+                >
+                  Geri
+                </button>
+                <button
+                  type="submit"
+                  disabled={regLoading || !otpSent}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {regLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Kayıt Ol ve Başla</span>}
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Quick Auto Login Bypass for already created profiles */}
-          {profile && (
+          {profile && regStep === 1 && (
             <div className="text-center pt-2 border-t border-slate-100">
               <button
                 onClick={() => setIsLoggedIn(true)}
@@ -393,6 +600,86 @@ export default function App() {
               </button>
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render 2FA login verification form if logged in but session is locked
+  if (isLoggedIn && !sessionUnlocked) {
+    const maskedEmail = profile?.email 
+      ? `${profile.email.split('@')[0].slice(0, 3)}***@${profile.email.split('@')[1]}`
+      : '';
+
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 shadow-md">
+              <Shield className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-black text-slate-800">Giriş Doğrulaması</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              EduAI hesabınızı açmak için kayıtlı e-posta adresinize (<strong>{maskedEmail}</strong>) bir doğrulama kodu gönderin.
+            </p>
+          </div>
+
+          {!otpSent ? (
+            <div className="text-center py-2">
+              <button
+                type="button"
+                disabled={otpLoading}
+                onClick={handleSendLoginOtp}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2 mx-auto"
+              >
+                {otpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Doğrulama Kodu Gönder'}
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleLoginVerification} className="space-y-4 animate-fadeIn">
+              <div>
+                <input 
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={emailOtpInput}
+                  onChange={(e) => setEmailOtpInput(e.target.value)}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-lg outline-none focus:border-indigo-500 transition font-mono font-bold tracking-widest"
+                />
+                {emailOtpError && (
+                  <p className="text-rose-500 text-[11px] font-bold text-center mt-2">{emailOtpError}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                Doğrula ve Giriş Yap
+              </button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  disabled={otpLoading}
+                  onClick={handleSendLoginOtp}
+                  className="text-[10px] text-indigo-600 hover:underline font-bold"
+                >
+                  {otpLoading ? 'Kod Gönderiliyor...' : 'Kodu Yeniden Gönder'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="text-center pt-2 border-t border-slate-100 flex flex-col gap-2">
+            <button
+              onClick={handleLogout}
+              className="text-[11px] text-slate-400 hover:text-slate-600 hover:underline font-semibold"
+            >
+              Başka Hesapla Giriş Yap (Profili Sıfırla)
+            </button>
+          </div>
         </div>
       </div>
     );
