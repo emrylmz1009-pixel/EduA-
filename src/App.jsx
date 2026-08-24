@@ -83,7 +83,17 @@ export default function App() {
     // API config
     const provider = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
     const apiKey = localStorage.getItem('eduai_api_key') || (provider === 'gemini' ? import.meta.env.VITE_GEMINI_API_KEY : import.meta.env.VITE_OPENAI_API_KEY) || '';
-    const model = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || (provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o-mini');
+    let model = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+    
+    // Auto-migrate legacy model names
+    if (model === 'gemini-2.5-flash') {
+      model = 'gemini-1.5-flash';
+      localStorage.setItem('eduai_model', 'gemini-1.5-flash');
+    } else if (model === 'gemini-2.5-pro') {
+      model = 'gemini-1.5-pro';
+      localStorage.setItem('eduai_model', 'gemini-1.5-pro');
+    }
+
     if (apiKey) {
       setApiKeyConfig({ provider, apiKey, model });
     }

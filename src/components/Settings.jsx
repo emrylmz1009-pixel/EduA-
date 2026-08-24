@@ -5,7 +5,7 @@ import { aiService } from '../services/ai';
 export default function Settings({ onSettingsSaved }) {
   const [provider, setProvider] = useState('gemini');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState('gemini-1.5-flash');
   const [showKey, setShowKey] = useState(false);
 
   const [testStatus, setTestStatus] = useState('idle'); // idle, testing, success, error
@@ -15,9 +15,8 @@ export default function Settings({ onSettingsSaved }) {
   // Available models based on provider
   const models = {
     gemini: [
-      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Önerilen - Hızlı & Ekonomik)' },
-      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Gelişmiş Analiz)' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Önerilen - Hızlı & Ekonomik)' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Gelişmiş Analiz)' }
     ],
     openai: [
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Önerilen - Hızlı & Ekonomik)' },
@@ -28,8 +27,17 @@ export default function Settings({ onSettingsSaved }) {
   useEffect(() => {
     const savedProv = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
     const savedKey = localStorage.getItem('eduai_api_key') || (savedProv === 'gemini' ? import.meta.env.VITE_GEMINI_API_KEY : import.meta.env.VITE_OPENAI_API_KEY) || '';
-    const savedMod = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || (savedProv === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o-mini');
+    let savedMod = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || (savedProv === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
     
+    // Auto-migrate legacy models
+    if (savedMod === 'gemini-2.5-flash') {
+      savedMod = 'gemini-1.5-flash';
+      localStorage.setItem('eduai_model', 'gemini-1.5-flash');
+    } else if (savedMod === 'gemini-2.5-pro') {
+      savedMod = 'gemini-1.5-pro';
+      localStorage.setItem('eduai_model', 'gemini-1.5-pro');
+    }
+
     setProvider(savedProv);
     setApiKey(savedKey);
     setModel(savedMod);
@@ -50,7 +58,7 @@ export default function Settings({ onSettingsSaved }) {
   const handleProviderChange = (e) => {
     const prov = e.target.value;
     setProvider(prov);
-    setModel(prov === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o-mini');
+    setModel(prov === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
   };
 
   const handleSave = () => {
