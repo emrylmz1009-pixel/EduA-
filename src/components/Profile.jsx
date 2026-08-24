@@ -204,9 +204,9 @@ export default function Profile({ profile, onLogout, onUpdate, stats }) {
             <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3">
               <ShieldAlert className="w-5 h-5 text-slate-400" />
               <div>
-                <span className="text-[10px] text-slate-400 block font-semibold">GÜVENLİK E-POSTASI</span>
-                <span className="font-bold text-slate-700 mt-0.5 block truncate">
-                  {profile?.email}
+                <span className="text-[10px] text-slate-400 block font-semibold">GÜVENLİK PIN KODU</span>
+                <span className="font-bold text-slate-700 mt-0.5 block font-mono">
+                  ******
                 </span>
               </div>
             </div>
@@ -214,17 +214,17 @@ export default function Profile({ profile, onLogout, onUpdate, stats }) {
         )}
       </div>
 
-      {/* Email Security Details Card */}
+      {/* PIN Security Details Card */}
       <div className="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-4">
         <div className="flex justify-between items-center border-b border-slate-50 pb-3">
-          <h3 className="font-bold text-slate-800 text-sm">E-posta Doğrulaması (2FA)</h3>
+          <h3 className="font-bold text-slate-800 text-sm">PIN Kodu Doğrulaması (2FA)</h3>
           <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-full font-bold">
             Aktif
           </span>
         </div>
         
         <p className="text-xs text-slate-500 leading-relaxed">
-          Hesabınız e-posta doğrulaması altındadır. Giriş yaparken kayıtlı e-posta adresinize (<strong>{profile?.email}</strong>) gönderilen 6 haneli doğrulama kodunu girmeniz istenir.
+          Hesabınız cihaz ve IP tanıma sistemiyle korunmaktadır. Aynı konumdan girildiğinde otomatik açılır; farklı bir cihaz veya ağdan giriş yapıldığında ise kayıt sırasında oluşturduğunuz 6 haneli Güvenlik PIN kodunu girmeniz istenir.
         </p>
       </div>
 
