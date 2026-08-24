@@ -4,7 +4,7 @@ import { aiService } from '../services/ai';
 
 export default function Settings({ onSettingsSaved }) {
   const [provider, setProvider] = useState('gemini');
-  const [model, setModel] = useState('gemini-1.5-flash');
+  const [model, setModel] = useState('gemini-3.6-flash');
   const [showKey, setShowKey] = useState(false);
 
   // Individual API key states
@@ -22,8 +22,9 @@ export default function Settings({ onSettingsSaved }) {
   // Available models based on provider
   const models = {
     gemini: [
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Önerilen - Hızlı & Ekonomik)' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Gelişmiş Analiz)' }
+      { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Önerilen - Hızlı & Yeni)' },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Gelişmiş Analiz)' }
     ],
     openai: [
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Önerilen - Hızlı & Ekonomik)' },
@@ -72,12 +73,9 @@ export default function Settings({ onSettingsSaved }) {
     let savedMod = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || 'gemini-1.5-flash';
     
     // Auto-migrate legacy models
-    if (savedMod === 'gemini-2.5-flash') {
-      savedMod = 'gemini-1.5-flash';
-      localStorage.setItem('eduai_model', 'gemini-1.5-flash');
-    } else if (savedMod === 'gemini-2.5-pro') {
-      savedMod = 'gemini-1.5-pro';
-      localStorage.setItem('eduai_model', 'gemini-1.5-pro');
+    if (savedMod === 'gemini-1.5-flash' || savedMod === 'gemini-1.5-pro') {
+      savedMod = 'gemini-3.6-flash';
+      localStorage.setItem('eduai_model', 'gemini-3.6-flash');
     }
 
     // Load individual keys
@@ -122,7 +120,7 @@ export default function Settings({ onSettingsSaved }) {
     setProvider(prov);
     
     // Pick default model for selected provider
-    const defaultModel = prov === 'gemini' ? 'gemini-1.5-flash' :
+    const defaultModel = prov === 'gemini' ? 'gemini-3.6-flash' :
                          prov === 'openai' ? 'gpt-4o-mini' :
                          prov === 'claude' ? 'claude-3-5-sonnet-latest' :
                          prov === 'deepseek' ? 'deepseek-chat' :
