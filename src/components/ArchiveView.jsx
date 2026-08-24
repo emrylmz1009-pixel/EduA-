@@ -53,8 +53,105 @@ export default function ArchiveView() {
       <div className="space-y-4">
         {history.map((item, idx) => {
           const isExpanded = expandedIndex === idx;
+          const isVisual = item.type === 'visual_solve';
+          
+          if (isVisual) {
+            return (
+              <div 
+                key={idx} 
+                className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden transition-all duration-300"
+              >
+                {/* Row Header */}
+                <div 
+                  onClick={() => toggleExpand(idx)}
+                  className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/50 transition select-none"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full inline-block mb-1.5 uppercase">
+                      Fotoğraftan Soru Çözümü ({item.subject})
+                    </span>
+                    <h4 className="font-bold text-slate-800 text-sm truncate">{item.topicName || item.docName}</h4>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{item.date}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-xl">
+                      Çözüldü
+                    </span>
+
+                    <button 
+                      onClick={(e) => handleClearSingle(idx, e)}
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                      title="Bu Çözümü Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="text-slate-400">
+                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded details */}
+                {isExpanded && (
+                  <div className="p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                      {item.imagePreview && (
+                        <div className="md:col-span-4 flex items-center justify-center bg-white p-2 border border-slate-200 rounded-xl max-h-[220px]">
+                          <img 
+                            src={item.imagePreview} 
+                            alt="Soru Görseli" 
+                            className="object-contain max-h-[200px] rounded-lg"
+                          />
+                        </div>
+                      )}
+                      
+                      <div className={`${item.imagePreview ? 'md:col-span-8' : 'md:col-span-12'} space-y-3`}>
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Soru Metni</span>
+                          <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed">
+                            {item.questionText}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Cevap Anahtarı</span>
+                          <div className="p-2.5 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-xs font-bold">
+                            Nihai Yanıt: {item.finalAnswer}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Adım Adım Çözüm Aşamaları</span>
+                      <div className="space-y-2">
+                        {item.solutionSteps?.map((step, sIdx) => (
+                          <div key={sIdx} className="p-3 bg-white border border-slate-150 rounded-xl text-xs text-slate-600 leading-relaxed shadow-sm">
+                            {step}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {item.studyTip && (
+                      <div className="p-3 bg-amber-50 border border-amber-100 text-amber-800 text-xs rounded-xl space-y-1">
+                        <strong className="block text-[9px] font-bold uppercase tracking-wider text-amber-900">💡 Öğretmen Taktiği</strong>
+                        <p>{item.studyTip}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const totalQ = item.totalQuestions || (item.correctCount + item.wrongCount);
-          const scorePercent = Math.round((item.correctCount / totalQ) * 100);
+          const scorePercent = totalQ > 0 ? Math.round((item.correctCount / totalQ) * 100) : 0;
 
           return (
             <div 

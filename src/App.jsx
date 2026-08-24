@@ -17,7 +17,10 @@ import {
   Hash,
   Shield,
   Loader2,
-  Key
+  Key,
+  Camera,
+  Calendar,
+  Volume2
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -29,6 +32,8 @@ import Settings from './components/Settings';
 import ProductivityPanel from './components/ProductivityPanel';
 import ArchiveView from './components/ArchiveView';
 import Profile from './components/Profile';
+import VisualSolver from './components/VisualSolver';
+import StudyPlanner from './components/StudyPlanner';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -305,6 +310,8 @@ export default function App() {
     { id: 'flashcards', name: 'Bilgi Kartları', icon: BrainCircuit, requiresDoc: true },
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
+    { id: 'visual-solver', name: 'Fotoğraftan Soru Çözücü', icon: Camera },
+    { id: 'study-planner', name: 'Ders Çalışma Planlayıcı', icon: Calendar },
     { id: 'productivity', name: 'Verimlilik & Pomodoro', icon: Clock },
     { id: 'archive', name: 'Soru Arşivi', icon: FolderOpen },
     { id: 'profile', name: 'Profilim', icon: User },
@@ -595,10 +602,10 @@ export default function App() {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && !isZenMode && (
-        <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden animate-fadeIn" onClick={() => setMobileMenuOpen(false)}>
+        <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden flex justify-end animate-fadeIn" onClick={() => setMobileMenuOpen(false)}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-64 max-w-[80vw] h-full bg-white p-5 flex flex-col space-y-6 animate-slideInRight"
+            className="w-64 max-w-[80vw] h-full bg-white p-5 flex flex-col space-y-6 shadow-2xl animate-slideInRight"
           >
             <div className="flex items-center gap-2">
               <div className="p-2 bg-indigo-600 text-white rounded-xl">
@@ -706,6 +713,18 @@ export default function App() {
 
         {activeTab === 'archive' && (
           <ArchiveView />
+        )}
+
+        {activeTab === 'visual-solver' && (
+          <VisualSolver 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
+        {activeTab === 'study-planner' && (
+          <StudyPlanner 
+            apiKeyConfig={apiKeyConfig}
+          />
         )}
 
         {activeTab === 'profile' && (

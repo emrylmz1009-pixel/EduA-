@@ -348,5 +348,56 @@ Yanıtını mutlaka şu JSON array formatında döndür:
 
     const cleanText = limitTextSize(pdfText);
     return await callApi(provider, apiKey, model, systemPrompt, cleanText, true);
+  },
+
+  async solveVisualQuestion(provider, apiKey, model, mimeType, base64Data, subject, promptText) {
+    const systemPrompt = `Sen uzman bir branş öğretmenisin. Yüklenen görseldeki soruyu tespit et ve adım adım çözümünü hazırla.
+Ders Branşı: ${subject}
+Ek Öğrenci İstekleri: "${promptText || 'Yok'}"
+
+Yanıtını MUTLAKA Türkçe olarak ve tam olarak şu JSON şemasında döndür:
+{
+  "questionText": "Tespit edilen sorunun tam metin hali (varsa formülleriyle)",
+  "solutionSteps": [
+    "1. Adım: ...",
+    "2. Adım: ..."
+  ],
+  "finalAnswer": "Nihai net cevap (Örn: D şıkkı, 42, vb.)",
+  "topicName": "Sorunun ait olduğu spesifik konu başlığı",
+  "studyTip": "Bu tarz soruları çözerken öğrencinin aklında tutması gereken ipucu/taktik"
+}`;
+
+    const userPrompt = `Görseldeki soruyu analiz et, çöz ve JSON şemasına uygun yanıt ver.`;
+    const mediaData = { mimeType, base64: base64Data };
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true, mediaData);
+  },
+
+  async generateStudyPlan(provider, apiKey, model, goalDescription, targetExam, availableHours, preferredSubjects) {
+    const systemPrompt = `Sen profesyonel bir eğitim koçusun. Öğrenci için kişiselleştirilmiş, verimli haftalık çalışma takvimi hazırla.
+Öğrencinin Hedefi: ${goalDescription}
+Hedef Sınavı: ${targetExam}
+Haftalık Ayırabileceği Toplam Saat: ${availableHours} saat
+Çalışmak İstediği Öncelikli Dersler: ${preferredSubjects.join(', ')}
+
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "planTitle": "Haftalık Çalışma Planı Başlığı",
+  "weeklySummary": "Haftalık ders çalışma stratejisinin genel açıklaması...",
+  "schedule": [
+    {
+      "day": "Pazartesi",
+      "sessions": [
+        { "time": "Saat Aralığı (Örn: 17:00 - 18:30)", "subject": "Ders Adı", "topic": "Çalışılacak Konu / Faaliyet", "duration": "Süre (Örn: 90 dk)" }
+      ]
+    }
+  ],
+  "recommendations": [
+    "Tavsiye 1...",
+    "Tavsiye 2..."
+  ]
+}`;
+
+    const userPrompt = `Öğrenci hedeflerine uygun haftalık çalışma planını JSON şemasında oluştur.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
   }
 };

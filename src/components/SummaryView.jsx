@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, BookOpen, Layers, Clock, Copy, Check, RefreshCw, AlertCircle, MessageSquare, Send, BookMarked, Share2 } from 'lucide-react';
+import { 
+  Loader2, BookOpen, Layers, Clock, Copy, Check, RefreshCw, AlertCircle, 
+  MessageSquare, Send, BookMarked, Share2, Play, Pause, Square, Volume2 
+} from 'lucide-react';
 import { aiService } from '../services/ai';
 
 export default function SummaryView({ activeDoc, apiKeyConfig, onSummaryGenerated }) {
@@ -211,6 +214,108 @@ export default function SummaryView({ activeDoc, apiKeyConfig, onSummaryGenerate
 
   if (!summary) return null;
 
+  // TTS / Audio Podcast states
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPausedAudio, setIsPausedAudio] = useState(false);
+  const [audioSpeed, setAudioSpeed] = useState(1); // 0.8, 1, 1.25, 1.5
+  const utteranceRef = useRef(null);
+
+  const stopAudio = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlayingAudio(false);
+    setIsPausedAudio(false);
+  };
+
+  const pauseAudio = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.pause();
+    }
+    setIsPausedAudio(true);
+  };
+
+  const resumeAudio = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.resume();
+    }
+    setIsPausedAudio(false);
+  };
+
+  const playAudio = () => {
+    if (!window.speechSynthesis) {
+      alert("Bu tarayıcı seslendirme özelliğini desteklemiyor.");
+      return;
+    }
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    // Determine the text to read based on activeSubTab
+    let textToRead = '';
+    if (activeSubTab === 'executive') {
+      textToRead = summary.executiveSummary || '';
+    } else if (activeSubTab === 'concepts') {
+      textToRead = (summary.keyConcepts || []).map(c => `${c.concept}: ${c.explanation}`).join('. ');
+    } else if (activeSubTab === 'timeline') {
+      textToRead = (summary.timeline || []).map(t => `${t.event} (${t.date}): ${t.significance}`).join('. ');
+    } else if (activeSubTab === 'guide') {
+      textToRead = (summary.guideNotes || []).map(g => `${g.title}: ${g.content}`).join('. ');
+    } else if (activeSubTab === 'glossary') {
+      textToRead = (summary.glossary || []).map(g => `${g.term}: ${g.definition}`).join('. ');
+    } else {
+      textToRead = summary.title || activeDoc.name;
+    }
+
+    if (!textToRead) return;
+
+    // Filter html tags if any
+    const cleanText = textToRead.replace(/<[^>]*>/g, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'tr-TR';
+    utterance.rate = audioSpeed;
+    
+    // Attempt to find a Turkish voice
+    const voices = window.speechSynthesis.getVoices();
+    const trVoice = voices.find(v => v.lang.startsWith('tr'));
+    if (trVoice) {
+      utterance.voice = trVoice;
+    }
+
+    utterance.onend = () => {
+      setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+    };
+
+    utterance.onerror = (e) => {
+      console.error("Speech synthesis error:", e);
+      setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+    };
+
+    utteranceRef.current = utterance;
+    setIsPlayingAudio(true);
+    setIsPausedAudio(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Clean up synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Update speed dynamically if playing
+  useEffect(() => {
+    if (isPlayingAudio && !isPausedAudio) {
+      playAudio();
+    }
+  }, [audioSpeed]);
+
   const showTimelineTab = summary.timeline && summary.timeline.length > 0;
 
   return (
@@ -281,6 +386,82 @@ export default function SummaryView({ activeDoc, apiKeyConfig, onSummaryGenerate
             >
               <MessageSquare className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Audio Study Podcast Player */}
+        <div className="bg-indigo-900 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 bg-indigo-800 text-indigo-200 rounded-xl ${isPlayingAudio && !isPausedAudio ? 'animate-bounce' : ''}`}>
+              <Volume2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Yapay Zeka Sesli Çalışma Podcasti</h4>
+              <p className="text-[11px] text-indigo-100 mt-0.5">
+                {isPlayingAudio 
+                  ? (isPausedAudio ? "Ders özeti duraklatıldı..." : "Aktif sekme içeriği seslendiriliyor...") 
+                  : "Ders özetini sesli kitap veya podcast olarak dinleyin."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Speed Selector */}
+            <div className="flex items-center border border-indigo-700 rounded-xl overflow-hidden p-0.5 bg-indigo-950 text-[10px] font-bold">
+              {[0.8, 1, 1.25, 1.5].map(speed => (
+                <button
+                  key={speed}
+                  onClick={() => setAudioSpeed(speed)}
+                  className={`px-2 py-1 rounded-lg transition ${
+                    audioSpeed === speed 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'text-indigo-300 hover:text-indigo-100'
+                  }`}
+                >
+                  {speed}x
+                </button>
+              ))}
+            </div>
+
+            {/* Play controls */}
+            <div className="flex items-center gap-1 bg-indigo-950 border border-indigo-700 p-0.5 rounded-xl">
+              {!isPlayingAudio ? (
+                <button
+                  onClick={playAudio}
+                  className="flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Dinle</span>
+                </button>
+              ) : (
+                <>
+                  {isPausedAudio ? (
+                    <button
+                      onClick={resumeAudio}
+                      className="p-1.5 text-indigo-300 hover:text-white transition"
+                      title="Devam Et"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={pauseAudio}
+                      className="p-1.5 text-indigo-300 hover:text-white transition"
+                      title="Duraklat"
+                    >
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  )}
+                  <button
+                    onClick={stopAudio}
+                    className="p-1.5 text-rose-400 hover:text-rose-300 transition"
+                    title="Durdur"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
