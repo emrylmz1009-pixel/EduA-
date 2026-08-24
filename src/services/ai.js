@@ -84,12 +84,82 @@ async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson
     
     return isJson ? parseJsonResponse(generatedText) : generatedText;
 
-  } else if (provider === 'openai') {
-    const url = 'https://api.openai.com/v1/chat/completions';
+  } else if (provider === 'claude') {
+    const url = 'https://api.anthropic.com/v1/messages';
     
     let contentParts = userPrompt;
+    if (mediaData && mediaData.mimeType.startsWith('image/')) {
+      contentParts = [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaData.mimeType,
+            data: mediaData.base64
+          }
+        },
+        {
+          type: 'text',
+          text: userPrompt
+        }
+      ];
+    } else {
+      contentParts = [
+        {
+          type: 'text',
+          text: userPrompt
+        }
+      ];
+    }
+
+    const body = {
+      model: model,
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: contentParts }
+      ]
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'dangerously-allow-browser': 'true'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || `Sunucu hatası (Kod: ${response.status})`;
+      throw new Error(`Claude API Hatası: ${errMsg}`);
+    }
+
+    const data = await response.json();
+    const generatedText = data.content?.[0]?.text;
+    if (!generatedText) {
+      throw new Error("Claude API'den boş yanıt döndü.");
+    }
+
+    return isJson ? parseJsonResponse(generatedText) : generatedText;
+
+  } else if (['openai', 'deepseek', 'groq', 'grok'].includes(provider)) {
+    let url = 'https://api.openai.com/v1/chat/completions';
     
-    // Support image multimodal for OpenAI (Audio is skipped for OpenAI completions)
+    if (provider === 'deepseek') {
+      url = 'https://api.deepseek.com/v1/chat/completions';
+    } else if (provider === 'groq') {
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+    } else if (provider === 'grok') {
+      url = 'https://api.x.ai/v1/chat/completions';
+    }
+
+    let contentParts = userPrompt;
+    
+    // Support image multimodal for OpenAI/Grok compatibility
     if (mediaData && mediaData.mimeType.startsWith('image/')) {
       contentParts = [
         { type: 'text', text: userPrompt },
@@ -119,13 +189,13 @@ async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       const errMsg = errData?.error?.message || `Sunucu hatası (Kod: ${response.status})`;
-      throw new Error(`OpenAI API Hatası: ${errMsg}`);
+      throw new Error(`${provider.toUpperCase()} API Hatası: ${errMsg}`);
     }
 
     const data = await response.json();
     const generatedText = data.choices?.[0]?.message?.content;
     if (!generatedText) {
-      throw new Error("OpenAI API'den boş yanıt döndü.");
+      throw new Error(`${provider.toUpperCase()} API'den boş yanıt döndü.`);
     }
 
     return isJson ? parseJsonResponse(generatedText) : generatedText;
@@ -154,8 +224,8 @@ export const aiService = {
    * Processes uploaded audio files using Gemini's native audio capabilities.
    */
   async processAudio(provider, apiKey, model, base64Audio, mimeType) {
-    if (provider === 'openai') {
-      throw new Error('OpenAI chat entegrasyonu doğrudan ses dosyası analizini desteklememektedir. Lütfen Google Gemini kullanın.');
+    if (provider !== 'gemini') {
+      throw new Error('Ses dosyası analizi şu anda sadece Google Gemini tarafından desteklenmektedir. Lütfen sağlayıcıyı Google Gemini olarak ayarlayın.');
     }
     const systemPrompt = "Sen bir sesli ders notu çözümleyicisisin. Dinlediğin ses kaydındaki ders anlatımını Türkçe metne dök ve önemli noktaları özetle.";
     const userPrompt = "Bu ses kaydını analiz et ve metne dök.";
