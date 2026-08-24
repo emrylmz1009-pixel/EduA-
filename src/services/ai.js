@@ -40,7 +40,7 @@ function limitTextSize(text, maxChars = 60000) {
 
 async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson = true, mediaData = null) {
   if (provider === 'gemini') {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
     
     const parts = [];
     
