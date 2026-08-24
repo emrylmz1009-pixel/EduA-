@@ -16,7 +16,8 @@ import {
   School,
   Hash,
   Shield,
-  Loader2
+  Loader2,
+  Key
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
