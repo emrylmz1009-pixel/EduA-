@@ -39,6 +39,33 @@ function limitTextSize(text, maxChars = 60000) {
 }
 
 async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson = true, mediaData = null) {
+  let retries = 3;
+  let delay = 1500;
+  
+  while (retries > 0) {
+    try {
+      return await callApiInner(provider, apiKey, model, systemPrompt, userPrompt, isJson, mediaData);
+    } catch (err) {
+      const isRetryable = err.message.toLowerCase().includes('overloaded') || 
+                          err.message.toLowerCase().includes('experiencing high demand') || 
+                          err.message.toLowerCase().includes('quota exceeded') ||
+                          err.message.toLowerCase().includes('rate limit') ||
+                          err.message.includes('503') ||
+                          err.message.includes('429');
+                          
+      if (isRetryable && retries > 1) {
+        retries--;
+        console.warn(`API call failed (retryable error: ${err.message}). Retrying in ${delay}ms... Remaining retries: ${retries}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // exponential backoff
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+async function callApiInner(provider, apiKey, model, systemPrompt, userPrompt, isJson = true, mediaData = null) {
   if (provider === 'gemini') {
     const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
     
