@@ -24,7 +24,8 @@ import {
   Mic,
   Target,
   Music,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -45,6 +46,7 @@ import OralExam from './components/OralExam';
 import SchoolExamPrep from './components/SchoolExamPrep';
 import FocusRoom from './components/FocusRoom';
 import PdfGenerator from './components/PdfGenerator';
+import AITutorChat from './components/AITutorChat';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -331,6 +333,7 @@ export default function App() {
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'oral-exam', name: 'Sözlü Sınav Simülatörü', icon: Mic },
     { id: 'school-exam', name: 'Okul Yazılı Sınavı', icon: School },
+    { id: 'ai-tutor', name: 'AI Özel Ders', icon: MessageSquare },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
     { id: 'visual-solver', name: 'Fotoğraftan Soru Çözücü', icon: Camera },
     { id: 'study-planner', name: 'Ders Çalışma Planlayıcı', icon: Calendar },
@@ -744,6 +747,12 @@ export default function App() {
 
         {activeTab === 'school-exam' && (
           <SchoolExamPrep 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
+        {activeTab === 'ai-tutor' && (
+          <AITutorChat 
             apiKeyConfig={apiKeyConfig}
           />
         )}

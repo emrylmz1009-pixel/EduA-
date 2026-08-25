@@ -701,5 +701,17 @@ Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
     const cleanText = pdfText ? limitTextSize(pdfText) : '';
     const userPrompt = `Soru: "${question}"\nCevap: "${studentAnswer}"\n\nDers İçeriği:\n${cleanText}`;
     return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async chatWithTutor(provider, apiKey, model, persona, message, history) {
+    const systemPrompt = `Sen profesyonel, yardımsever ve motive edici bir branş öğretmenisin. Seçilen role göre öğrenciye rehberlik et ve sorularını açıkla.
+Öğretmen Rolü/Branşı: ${persona}
+
+Kurallar:
+- Öğrencinin seviyesine uygun, anlaşılır açıklamalar yap.
+- Eğer öğrenci bir soru sormuşsa adım adım çözümünü açıkla.
+- Yanıtını doğrudan düz metin / temiz Markdown olarak döndür.`;
+    const userPrompt = `Öğretmen Rolü: ${persona}\nÖğrencinin Mesajı: "${message}"\n\nÖnceki Konuşma Geçmişi:\n${JSON.stringify(history)}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, false);
   }
 };
