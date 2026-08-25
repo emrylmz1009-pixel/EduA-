@@ -5,6 +5,7 @@ import { aiService } from '../services/ai';
 export default function StudyPlanner({ apiKeyConfig }) {
   const [goal, setGoal] = useState('');
   const [exam, setExam] = useState('YKS');
+  const [grade, setGrade] = useState('12. Sınıf');
   const [hours, setHours] = useState(15);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   
@@ -38,6 +39,7 @@ export default function StudyPlanner({ apiKeyConfig }) {
   ];
 
   const examsList = ['YKS', 'LGS', 'Okul Sınavları', 'KPSS', 'DGS', 'Lise Sınavları', 'Diğer'];
+  const gradesList = ['5. Sınıf', '6. Sınıf', '7. Sınıf', '8. Sınıf', '9. Sınıf', '10. Sınıf', '11. Sınıf', '12. Sınıf', 'Mezun', 'Diğer'];
 
   useEffect(() => {
     try {
@@ -95,7 +97,8 @@ export default function StudyPlanner({ apiKeyConfig }) {
         goal,
         exam,
         hours,
-        selectedSubjects
+        selectedSubjects,
+        grade
       );
       
       setPlan(result);
@@ -250,17 +253,32 @@ export default function StudyPlanner({ apiKeyConfig }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hedef Sınavınız</label>
-                <select
-                  value={exam}
-                  onChange={(e) => setExam(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 bg-white"
-                >
-                  {examsList.map(ex => (
-                    <option key={ex} value={ex}>{ex}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hedef Sınavınız</label>
+                  <select
+                    value={exam}
+                    onChange={(e) => setExam(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 bg-white"
+                  >
+                    {examsList.map(ex => (
+                      <option key={ex} value={ex}>{ex}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Sınıfınız / Durum</label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 bg-white"
+                  >
+                    {gradesList.map(gr => (
+                      <option key={gr} value={gr}>{gr}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>

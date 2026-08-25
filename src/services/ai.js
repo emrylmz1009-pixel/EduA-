@@ -442,9 +442,10 @@ Yanıtını MUTLAKA Türkçe olarak ve tam olarak şu JSON şemasında döndür:
     return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true, mediaData);
   },
 
-  async generateStudyPlan(provider, apiKey, model, goalDescription, targetExam, availableHours, preferredSubjects) {
+  async generateStudyPlan(provider, apiKey, model, goalDescription, targetExam, availableHours, preferredSubjects, grade) {
     const systemPrompt = `Sen profesyonel bir eğitim koçusun. Öğrenci için kişiselleştirilmiş, verimli haftalık çalışma takvimi hazırla.
 Öğrencinin Hedefi: ${goalDescription}
+Öğrencinin Sınıf Seviyesi: ${grade}
 Hedef Sınavı: ${targetExam}
 Haftalık Ayırabileceği Toplam Saat: ${availableHours} saat
 Çalışmak İstediği Öncelikli Dersler: ${preferredSubjects.join(', ')}
