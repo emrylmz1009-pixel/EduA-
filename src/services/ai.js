@@ -711,7 +711,57 @@ Kurallar:
 - Öğrencinin seviyesine uygun, anlaşılır açıklamalar yap.
 - Eğer öğrenci bir soru sormuşsa adım adım çözümünü açıkla.
 - Yanıtını doğrudan düz metin / temiz Markdown olarak döndür.`;
-    const userPrompt = `Öğretmen Rolü: ${persona}\nÖğrencinin Mesajı: "${message}"\n\nÖnceki Konuşma Geçmişi:\n${JSON.stringify(history)}`;
+    const userPrompt = `Öretmen Rolü: ${persona}\nÖğrencinin Mesajı: "${message}"\n\nÖnceki Konuşma Geçmişi:\n${JSON.stringify(history)}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, false);
+  },
+
+  async generateObjectiveQuestion(provider, apiKey, model, grade, subject, code, text) {
+    const systemPrompt = `Sen MEB müfredatına ve kazanımlarına hakim bir branş öğretmenisin. Öğrencinin seçtiği resmi kazanım hedefine uygun açık uçlu bir soru oluştur.
+Sınıf Seviyesi: ${grade}
+Ders Branşı: ${subject}
+Kazanım Kodu: ${code}
+Kazanım Açıklaması: "${text}"
+
+Sorunun tamamen bu kazanımı ölçmeye yönelik olmasına dikkat et.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "questionText": "Kazanımı ölçen açık uçlu test sorusunun metni"
+}`;
+    const userPrompt = `${code} kazanımı için açık uçlu soru üret.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async evaluateObjectiveAnswer(provider, apiKey, model, question, answer, code) {
+    const systemPrompt = `Sen uzman bir okul öğretmenisin. Öğrencinin kazanım test sorusuna verdiği cevabı oku ve 0-100 arasında puanla.
+Kazanım Kodu: ${code}
+Sınav Sorusu: "${question}"
+Öğrencinin Verdiği Cevap: "${answer}"
+
+Öğrencinin cevabını objektif olarak oku. Kazanımı elde edip etmediğini ölç.
+Eğer 70 veya üzeri puan alırsa kazanım tamamlanmış sayılacaktır.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "score": 85,
+  "feedbackText": "Cevabın değerlendirmesi ve eksik noktalar...",
+  "mastered": true
+}`;
+    const userPrompt = `Soru: "${question}"\nCevap: "${answer}"\nDeğerlendir.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async explainObjectiveLectures(provider, apiKey, model, grade, subject, code, text) {
+    const systemPrompt = `Sen sınav başarısı odaklı tecrübeli bir MEB branş öğretmenisin. Öğrencinin seçtiği kazanım hedefini sınav odaklı bir şekilde açıkla.
+Sınıf Seviyesi: ${grade}
+Ders Branşı: ${subject}
+Kazanım Kodu: ${code}
+Kazanım Açıklaması: "${text}"
+
+İçerikte şunlar yer almalı:
+1. Konunun Özeti ve En Önemli Tanımları.
+2. Yazılı veya Merkezi Sınavlarda bu kazanımdan nasıl sorular çıktığı (Soru Tarzları ve Püf Noktaları).
+3. Önemli bir ipucu veya pratik kural.
+Yanıtını doğrudan Markdown biçiminde düz metin olarak döndür.`;
+    const userPrompt = `${code} kazanımına ait sınav odaklı konu anlatım notunu oluştur.`;
     return await callApi(provider, apiKey, model, systemPrompt, userPrompt, false);
   }
 };

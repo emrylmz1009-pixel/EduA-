@@ -47,6 +47,7 @@ import SchoolExamPrep from './components/SchoolExamPrep';
 import FocusRoom from './components/FocusRoom';
 import PdfGenerator from './components/PdfGenerator';
 import AITutorChat from './components/AITutorChat';
+import MebObjectives from './components/MebObjectives';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -333,6 +334,7 @@ export default function App() {
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'oral-exam', name: 'Sözlü Sınav Simülatörü', icon: Mic },
     { id: 'school-exam', name: 'Okul Yazılı Sınavı', icon: School },
+    { id: 'meb-objectives', name: 'MEB Kazanım Takipçisi', icon: GraduationCap },
     { id: 'ai-tutor', name: 'AI Özel Ders', icon: MessageSquare },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
     { id: 'visual-solver', name: 'Fotoğraftan Soru Çözücü', icon: Camera },
@@ -747,6 +749,12 @@ export default function App() {
 
         {activeTab === 'school-exam' && (
           <SchoolExamPrep 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
+        {activeTab === 'meb-objectives' && (
+          <MebObjectives 
             apiKeyConfig={apiKeyConfig}
           />
         )}
