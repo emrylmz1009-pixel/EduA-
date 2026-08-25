@@ -34,6 +34,7 @@ import ArchiveView from './components/ArchiveView';
 import Profile from './components/Profile';
 import VisualSolver from './components/VisualSolver';
 import StudyPlanner from './components/StudyPlanner';
+import AudioDocAssistant from './components/AudioDocAssistant';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -314,6 +315,7 @@ export default function App() {
   const menuItems = [
     { id: 'dashboard', name: 'Kontrol Paneli', icon: LayoutDashboard },
     { id: 'summary', name: 'Metin Özetleme', icon: BookOpen, requiresDoc: true },
+    { id: 'audio-doc', name: 'Sesli PDF Asistanı', icon: Volume2, requiresDoc: true },
     { id: 'flashcards', name: 'Bilgi Kartları', icon: BrainCircuit, requiresDoc: true },
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
@@ -683,6 +685,13 @@ export default function App() {
             activeDoc={activeDoc}
             apiKeyConfig={apiKeyConfig}
             onSummaryGenerated={handleSummaryGenerated}
+          />
+        )}
+
+        {activeTab === 'audio-doc' && activeDoc && (
+          <AudioDocAssistant 
+            activeDoc={activeDoc}
+            apiKeyConfig={apiKeyConfig}
           />
         )}
 

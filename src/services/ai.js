@@ -481,5 +481,40 @@ Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
 
     const userPrompt = `Öğrenci hedeflerine uygun haftalık çalışma planını JSON şemasında oluştur.`;
     return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async generateLectureAgenda(provider, apiKey, model, pdfText) {
+    const systemPrompt = `Sen profesyonel bir özel öğretmensin. Yüklenen ders notunu incele ve bu ders notunu sesli olarak anlatmak için 3 ile 5 bölümden oluşan mantıksal bir ders müfredatı/akışı (agenda) oluştur.
+Her bölümün adı kısa ve açıklayıcı olsun.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "agendaTitle": "Dersin Genel Başlığı",
+  "sections": [
+    { "title": "Bölüm Başlığı (Örn: 1. Limit Kavramı)", "description": "Bu bölümde işlenecek temel kavramlar..." }
+  ]
+}`;
+    const userPrompt = `Aşağıdaki ders içeriği için ders akışı oluştur.`;
+    const cleanText = limitTextSize(pdfText);
+    return await callApi(provider, apiKey, model, systemPrompt, `${userPrompt}\n\nDers İçeriği:\n${cleanText}`, true);
+  },
+
+  async explainLectureSegment(provider, apiKey, model, pdfText, agendaTitle, sectionTitle, sectionDescription, history) {
+    const systemPrompt = `Sen samimi ve başarılı bir özel öğretmensin. Ders başlığı: ${agendaTitle}. 
+Şu an anlatman gereken bölüm: "${sectionTitle}" (${sectionDescription}).
+Metni oku ve bu bölümü öğrenciye sesli anlatacakmışsın gibi samimi, öğretici, akıcı bir öğretmen tonuyla anlat. Anlatım çok uzun olmasın (ortalama 2-3 paragraf), net ve anlaşılır olsun.
+Anlatımın sonunda öğrenciye bu anlattığın yerle ilgili aklına takılan bir soru olup olmadığını sor.
+Yanıtını doğrudan düz metin olarak döndür.`;
+    const userPrompt = `Ders içeriğine dayanarak "${sectionTitle}" bölümünü öğrenciye anlat.`;
+    const cleanText = limitTextSize(pdfText);
+    return await callApi(provider, apiKey, model, systemPrompt, `${userPrompt}\n\nDers İçeriği:\n${cleanText}\n\nÖnceki Sohbet Geçmişi:\n${JSON.stringify(history)}`, false);
+  },
+
+  async answerLectureQuestion(provider, apiKey, model, pdfText, sectionTitle, question, history) {
+    const systemPrompt = `Sen samimi bir özel öğretmensin. Öğrenci "${sectionTitle}" bölümü anlatılırken araya girdi ve sana bir soru sordu.
+Öğrencinin Sorusu: "${question}"
+Ders içeriğine ve bağlama sadık kalarak, öğrencinin bu sorusunu açıklayıcı, net ve samimi bir öğretmen tonuyla cevapla.
+Cevabını doğrudan düz metin olarak döndür.`;
+    const cleanText = limitTextSize(pdfText);
+    return await callApi(provider, apiKey, model, systemPrompt, `Soru: ${question}\n\nDers İçeriği:\n${cleanText}\n\nSohbet Geçmişi:\n${JSON.stringify(history)}`, false);
   }
 };
