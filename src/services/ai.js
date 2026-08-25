@@ -457,7 +457,18 @@ Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
     {
       "day": "Pazartesi",
       "sessions": [
-        { "time": "Saat Aralığı (Örn: 17:00 - 18:30)", "subject": "Ders Adı", "topic": "Çalışılacak Konu / Faaliyet", "duration": "Süre (Örn: 90 dk)" }
+        { 
+          "time": "Saat Aralığı (Örn: 17:00 - 18:30)", 
+          "subject": "Ders Adı (Örn: Matematik)", 
+          "unit": "Dersin Ünite Adı (Örn: Trigonometri)",
+          "topic": "Üniteye Ait Çalışılacak Konu (Örn: Trigonometrik Denklemler)", 
+          "duration": "Süre (Örn: 90 dk)",
+          "tasks": [
+            "Konu anlatım videosunu izle ve formülleri not al",
+            "Konuyla ilgili 30 test sorusu çöz",
+            "Yanlış yaptığın soruların çözümlerini analiz et"
+          ]
+        }
       ]
     }
   ],
