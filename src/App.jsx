@@ -22,7 +22,9 @@ import {
   Calendar,
   Volume2,
   Mic,
-  Target
+  Target,
+  Music,
+  FileText
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -40,6 +42,9 @@ import AudioDocAssistant from './components/AudioDocAssistant';
 import TargetTracker from './components/TargetTracker';
 import VoiceNotes from './components/VoiceNotes';
 import OralExam from './components/OralExam';
+import SchoolExamPrep from './components/SchoolExamPrep';
+import FocusRoom from './components/FocusRoom';
+import PdfGenerator from './components/PdfGenerator';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -321,14 +326,17 @@ export default function App() {
     { id: 'dashboard', name: 'Kontrol Paneli', icon: LayoutDashboard },
     { id: 'summary', name: 'Metin Özetleme', icon: BookOpen, requiresDoc: true },
     { id: 'audio-doc', name: 'Sesli PDF Asistanı', icon: Volume2, requiresDoc: true },
+    { id: 'pdf-generator', name: 'Ders Notu & PDF Üretici', icon: FileText },
     { id: 'flashcards', name: 'Bilgi Kartları', icon: BrainCircuit, requiresDoc: true },
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
     { id: 'oral-exam', name: 'Sözlü Sınav Simülatörü', icon: Mic },
+    { id: 'school-exam', name: 'Okul Yazılı Sınavı', icon: School },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
     { id: 'visual-solver', name: 'Fotoğraftan Soru Çözücü', icon: Camera },
     { id: 'study-planner', name: 'Ders Çalışma Planlayıcı', icon: Calendar },
     { id: 'target-tracker', name: 'Hedef Okul & Tercih', icon: Target },
     { id: 'productivity', name: 'Verimlilik & Pomodoro', icon: Clock },
+    { id: 'focus-room', name: 'Odaklanma Odası', icon: Music },
     { id: 'voice-notes', name: 'Sesli Ders Notları', icon: Mic },
     { id: 'archive', name: 'Soru Arşivi', icon: FolderOpen },
     { id: 'profile', name: 'Profilim', icon: User },
@@ -703,6 +711,12 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'pdf-generator' && (
+          <PdfGenerator 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
         {activeTab === 'flashcards' && activeDoc && (
           <FlashcardsView 
             activeDoc={activeDoc}
@@ -728,6 +742,12 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'school-exam' && (
+          <SchoolExamPrep 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
         {activeTab === 'weakness' && (
           <WeaknessAnalysis 
             activeDoc={activeDoc}
@@ -740,6 +760,10 @@ export default function App() {
             onZenToggle={() => setIsZenMode(!isZenMode)}
             isZenMode={isZenMode}
           />
+        )}
+
+        {activeTab === 'focus-room' && (
+          <FocusRoom />
         )}
 
         {activeTab === 'archive' && (

@@ -610,5 +610,96 @@ Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
     const cleanText = pdfText ? limitTextSize(pdfText) : '';
     const userPrompt = `Soru: "${question}"\nCevap: "${studentAnswer}"\n\nDers İçeriği:\n${cleanText}`;
     return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async generateSchoolExam(provider, apiKey, model, grade, subject, term) {
+    const systemPrompt = `Sen Türkiye Cumhuriyeti MEB müfredatına hakim uzman bir branş öğretmenisin. Öğrencinin seçtiği sınıf ve sınav dönemine uygun, MEB standartlarında klasik (açık uçlu) yazılı sınav kağıdı hazırla.
+Sınıf Düzeyi: ${grade}
+Ders Branşı: ${subject}
+Sınav Dönemi: ${term}
+
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "examTitle": "Örn: 10. Sınıf Fizik Dersi 1. Dönem 1. Yazılı Sınavı",
+  "questions": [
+    "1. Klasik (açık uçlu) soru metni...",
+    "2. Klasik (açık uçlu) soru metni...",
+    "3. Klasik (açık uçlu) soru metni...",
+    "4. Klasik (açık uçlu) soru metni...",
+    "5. Klasik (açık uçlu) soru metni..."
+  ]
+}`;
+    const userPrompt = `${grade} ${subject} ${term} klasik yazılı sınavını oluştur.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async gradeSchoolExamAnswers(provider, apiKey, model, questions, studentAnswers) {
+    const systemPrompt = `Sen titiz ve yapıcı bir okul öğretmenisin. Öğrencinin klasik yazılı sınav sorularına verdiği cevapları MEB kriterlerine göre oku ve puanla.
+Sınav Soruları:
+${questions.map((q, idx) => `${idx + 1}. Soru: ${q}`).join('\n')}
+
+Öğrencinin Verdiği Cevaplar:
+${studentAnswers.map((a, idx) => `${idx + 1}. Soru Cevabı: ${a}`).join('\n')}
+
+Her soruyu ayrı ayrı 20 puan üzerinden değerlendir (toplam 100 puan).
+Her soru için kazanılan puanı ve kısa öğretmen notunu/düzeltmesini içeren bir karne hazırla.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "totalGrade": 85,
+  "teacherAdvice": "Öğrenciye genel çalışma ve eksik kapatma tavsiyesi...",
+  "grades": [
+    { "score": 15, "comment": "Doğru yaklaşım ancak formül işlem hatası yapılmış. (-5 puan)" }
+  ]
+}`;
+    const userPrompt = `Sınav cevap kağıdını oku, değerlendir ve JSON şemasında notlandır.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async writeTextbookBooklet(provider, apiKey, model, topic) {
+    const systemPrompt = `Sen tecrübeli bir ders kitabı yazarı ve öğretmenisin. Öğrencinin yazdığı konu hakkında son derece açıklayıcı, akademik olarak doğru, zengin içerikli bir ders konu anlatım fasikülü/kitapçığı yaz.
+Konu Başlığı: ${topic}
+
+İçerikte şunlar yer almalı:
+1. Konunun Detaylı Teorik Açıklaması (Tanımlar, Kurallar).
+2. Temel Formüller ve Önemli Kurallar (Varsa LaTeX formatında yazılmış denklemler, örn: \\\\(E = mc^2\\\\)).
+3. Çözümlü 3 Adet Örnek Soru ve Adım Adım Detaylı Çözümleri.
+4. Konuyu Pekiştirmek için 3 Adet Alıştırma Sorusu (Cevap anahtarlı).
+
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "title": "Fasikül Başlığı (Örn: Matematik - Logaritma Kuralları ve Çözümlü Sorular)",
+  "subject": "Ders Adı",
+  "introduction": "Konuya kısa giriş ve önemi...",
+  "theoryContent": "Detaylı konu anlatımı (Markdown formatında, alt başlıklar, tanımlar, maddeler ile)...",
+  "formulas": [
+    { "formula": "LaTeX formatında formül (Örn: \\\\log_a(x \\\\cdot y) = \\\\log_a x + \\\\log_a y)", "explanation": "Formülün açıklaması..." }
+  ],
+  "solvedQuestions": [
+    { "question": "Soru metni...", "solution": "Detaylı adım adım çözümü..." }
+  ],
+  "practiceQuestions": [
+    { "question": "Alıştırma soru metni...", "answerKey": "Kısa cevap anahtarı..." }
+  ]
+}`;
+    const userPrompt = `"${topic}" konusu için kapsamlı ders anlatım kitapçığını oluştur.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async evaluateOralAnswer(provider, apiKey, model, question, studentAnswer, pdfText) {
+    const systemPrompt = `Sen uzman bir sözlü sınav öğretmenisin. Öğrencinin sözlü sınav sorusuna verdiği cevabı puanla ve yapıcı geri bildirim ver.
+Sözlü Sınav Sorusu: "${question}"
+Öğrencinin Verdiği Cevap: "${studentAnswer}"
+
+Verilen ders içeriğine dayanarak öğrencinin cevabını objektif olarak değerlendir.
+Cevapta doğru söylenen şeyleri tebrik et, eksik bırakılan veya yanlış söylenen anahtar terimleri belirt.
+Puanlamayı 0 ile 100 arasında yap.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "score": 85,
+  "feedbackText": "Öğrenciye seslendirilecek olan yapıcı geri bildirim ve değerlendirme açıklaması..."
+}`;
+    const cleanText = pdfText ? limitTextSize(pdfText) : '';
+    const userPrompt = `Soru: "${question}"\nCevap: "${studentAnswer}"\n\nDers İçeriği:\n${cleanText}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
   }
 };
