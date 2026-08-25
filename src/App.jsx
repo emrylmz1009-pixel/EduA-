@@ -20,7 +20,9 @@ import {
   Key,
   Camera,
   Calendar,
-  Volume2
+  Volume2,
+  Mic,
+  Target
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -35,6 +37,9 @@ import Profile from './components/Profile';
 import VisualSolver from './components/VisualSolver';
 import StudyPlanner from './components/StudyPlanner';
 import AudioDocAssistant from './components/AudioDocAssistant';
+import TargetTracker from './components/TargetTracker';
+import VoiceNotes from './components/VoiceNotes';
+import OralExam from './components/OralExam';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -318,10 +323,13 @@ export default function App() {
     { id: 'audio-doc', name: 'Sesli PDF Asistanı', icon: Volume2, requiresDoc: true },
     { id: 'flashcards', name: 'Bilgi Kartları', icon: BrainCircuit, requiresDoc: true },
     { id: 'quiz', name: 'Deneme Sınavı', icon: Award, requiresDoc: true },
+    { id: 'oral-exam', name: 'Sözlü Sınav Simülatörü', icon: Mic },
     { id: 'weakness', name: 'Zayıf Nokta Analizi', icon: Brain },
     { id: 'visual-solver', name: 'Fotoğraftan Soru Çözücü', icon: Camera },
     { id: 'study-planner', name: 'Ders Çalışma Planlayıcı', icon: Calendar },
+    { id: 'target-tracker', name: 'Hedef Okul & Tercih', icon: Target },
     { id: 'productivity', name: 'Verimlilik & Pomodoro', icon: Clock },
+    { id: 'voice-notes', name: 'Sesli Ders Notları', icon: Mic },
     { id: 'archive', name: 'Soru Arşivi', icon: FolderOpen },
     { id: 'profile', name: 'Profilim', icon: User },
     { id: 'settings', name: 'Ayarlar', icon: SettingsIcon },
@@ -713,6 +721,13 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'oral-exam' && (
+          <OralExam 
+            activeDoc={activeDoc}
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
         {activeTab === 'weakness' && (
           <WeaknessAnalysis 
             activeDoc={activeDoc}
@@ -739,6 +754,18 @@ export default function App() {
 
         {activeTab === 'study-planner' && (
           <StudyPlanner 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
+        {activeTab === 'target-tracker' && (
+          <TargetTracker 
+            apiKeyConfig={apiKeyConfig}
+          />
+        )}
+
+        {activeTab === 'voice-notes' && (
+          <VoiceNotes 
             apiKeyConfig={apiKeyConfig}
           />
         )}

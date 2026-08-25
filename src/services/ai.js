@@ -516,5 +516,72 @@ Ders içeriğine ve bağlama sadık kalarak, öğrencinin bu sorusunu açıklay�
 Cevabını doğrudan düz metin olarak döndür.`;
     const cleanText = limitTextSize(pdfText);
     return await callApi(provider, apiKey, model, systemPrompt, `Soru: ${question}\n\nDers İçeriği:\n${cleanText}\n\nSohbet Geçmişi:\n${JSON.stringify(history)}`, false);
+  },
+
+  async getTargetSchoolNets(provider, apiKey, model, schoolName, examType) {
+    const systemPrompt = `Sen eğitim danışmanlığı uzmanısın. Öğrencinin seçtiği hedef okulun (LGS veya YKS için) en güncel yaklaşık taban puanı ve kazanması için her testten yapması gereken ortalama net sayılarını hesapla.
+Hedef Okul: ${schoolName}
+Sınav Türü: ${examType}
+
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "schoolName": "Okulun Tam Resmi Adı",
+  "estimatedCutoff": "Tahmini Taban Puan (Örn: LGS için 475.2, YKS için TYT: 510.5 vb.)",
+  "targetNets": {
+    "turkce": 18,
+    "matematik": 17,
+    "fen": 18,
+    "sosyal": 9
+  },
+  "tutorAdvice": "Bu okula yerleşmek için ders çalışma stratejisi tavsiyesi..."
+}`;
+    const userPrompt = `${schoolName} (${examType}) için tahmini taban puanı ve ortalama net gereksinimlerini oluştur.`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async structureVoiceNote(provider, apiKey, model, rawText) {
+    const systemPrompt = `Sen profesyonel bir ders çalışma asistanısın. Öğrencinin konuşarak aldığı düzensiz ders çalışma notunu / konuşma dökümünü düzenle.
+İçeriği anlaşılır, başlıklandırılmış, maddeler halinde temiz bir Markdown çalışma notu haline getir.
+İçeriğe uygun kısa bir başlık belirle.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "title": "Notun Başlığı",
+  "subject": "Dersin Adı (Örn: Matematik, Fizik, Genel)",
+  "formattedNote": "Markdown formatında düzenlenmiş, maddeli ders notu içeriği..."
+}`;
+    const userPrompt = `Aşağıdaki ses dökümünü şık bir ders notuna dönüştür:\n\n${rawText}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async generateOralQuestion(provider, apiKey, model, subject, pdfText, questionIndex, history) {
+    const systemPrompt = `Sen samimi ve uzman bir sözlü sınav öğretmenisin. Öğrenciye "${subject}" konusuyla ilgili sözlü sınav yapıyorsun.
+Soru Sırası: ${questionIndex}. Soru.
+Eğer döküman metni sağlanmışsa, soruyu doğrudan ders notundaki bilgilere dayandır.
+Soru açık uçlu, öğrencinin bilgisini anlatarak açıklamaya zorlayacak kalitede bir soru olsun.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "questionText": "Öğrenciye sesli sorulacak olan açık uçlu sözlü sınav sorusunun metni"
+}`;
+    const cleanText = pdfText ? limitTextSize(pdfText) : '';
+    const userPrompt = `Ders: ${subject}\nSoru Sırası: ${questionIndex}\n\nDers İçeriği:\n${cleanText}\n\nSohbet Geçmişi:\n${JSON.stringify(history)}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
+  },
+
+  async evaluateOralAnswer(provider, apiKey, model, question, studentAnswer, pdfText) {
+    const systemPrompt = `Sen uzman bir sözlü sınav öğretmenisin. Öğrencinin sözlü sınav sorusuna verdiği cevabı puanla ve yapıcı geri bildirim ver.
+Sözlü Sınav Sorusu: "${question}"
+Öğrencinin Verdiği Cevap: "${studentAnswer}"
+
+Verilen ders içeriğine dayanarak öğrencinin cevabını objektif olarak değerlendir.
+Cevapta doğru söylenen şeyleri tebrik et, eksik bırakılan veya yanlış söylenen anahtar terimleri belirt.
+Puanlamayı 0 ile 100 arasında yap.
+Yanıtını MUTLAKA Türkçe ve tam olarak şu JSON şemasında döndür:
+{
+  "score": 85,
+  "feedbackText": "Öğrenciye seslendirilecek olan yapıcı geri bildirim ve değerlendirme açıklaması..."
+}`;
+    const cleanText = pdfText ? limitTextSize(pdfText) : '';
+    const userPrompt = `Soru: "${question}"\nCevap: "${studentAnswer}"\n\nDers İçeriği:\n${cleanText}`;
+    return await callApi(provider, apiKey, model, systemPrompt, userPrompt, true);
   }
 };
