@@ -15,6 +15,8 @@ export default function AudioDocAssistant({ activeDoc, apiKeyConfig }) {
   // TTS (Speech Synthesis) state
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [voices, setVoices] = useState([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState('');
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
 
@@ -33,7 +35,27 @@ export default function AudioDocAssistant({ activeDoc, apiKeyConfig }) {
   }, [chatHistory, loading]);
 
   useEffect(() => {
-    // Initialize Webkit Speech Recognition
+    // 1. Initialize Turkish voices
+    const updateVoices = () => {
+      if (synthRef.current) {
+        const allVoices = synthRef.current.getVoices();
+        const trVoices = allVoices.filter(v => v.lang.toLowerCase().startsWith('tr'));
+        setVoices(trVoices);
+        
+        if (trVoices.length > 0) {
+          const savedVoice = localStorage.getItem('eduai_selected_voice') || '';
+          const match = trVoices.find(v => v.name === savedVoice) || trVoices[0];
+          setSelectedVoiceName(match.name);
+        }
+      }
+    };
+
+    updateVoices();
+    if (synthRef.current) {
+      synthRef.current.onvoiceschanged = updateVoices;
+    }
+
+    // 2. Initialize Webkit Speech Recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const rec = new SpeechRecognition();
@@ -85,11 +107,13 @@ export default function AudioDocAssistant({ activeDoc, apiKeyConfig }) {
     utterance.lang = 'tr-TR';
     utterance.rate = playbackSpeed;
     
-    // Attempt to select a Turkish female/male voice if available
-    const voices = synthRef.current.getVoices();
-    const trVoice = voices.find(v => v.lang.startsWith('tr'));
-    if (trVoice) {
-      utterance.voice = trVoice;
+    // Attempt to select the chosen Turkish voice
+    const activeVoice = voices.find(v => v.name === selectedVoiceName);
+    if (activeVoice) {
+      utterance.voice = activeVoice;
+    } else {
+      const fallbackVoice = voices.find(v => v.lang.toLowerCase().startsWith('tr'));
+      if (fallbackVoice) utterance.voice = fallbackVoice;
     }
 
     utterance.onstart = () => setIsPlaying(true);
@@ -382,25 +406,52 @@ export default function AudioDocAssistant({ activeDoc, apiKeyConfig }) {
             </div>
 
             {/* Playback Controls & Voice parameters */}
-            <div className="border-t border-slate-100 pt-4 space-y-3.5">
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
-                <span>SES HIZI CONTROLLER</span>
-                <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{playbackSpeed}x</span>
-              </div>
-              <div className="flex gap-1.5">
-                {[0.8, 1.0, 1.25, 1.5].map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={() => changeSpeed(speed)}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-extrabold transition ${
-                      playbackSpeed === speed
-                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
-                    }`}
+            <div className="border-t border-slate-100 pt-4 space-y-4">
+              {voices.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase">Anlatıcı Sesi Seçimi</label>
+                  <select
+                    value={selectedVoiceName}
+                    onChange={(e) => {
+                      setSelectedVoiceName(e.target.value);
+                      localStorage.setItem('eduai_selected_voice', e.target.value);
+                      // Instantly change active voice if playing
+                      const lastAssistantMessage = [...chatHistory].reverse().find(msg => msg.role === 'assistant');
+                      if (lastAssistantMessage) {
+                        startSpeaking(lastAssistantMessage.text);
+                      }
+                    }}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-[11px] font-semibold outline-none focus:border-indigo-500 bg-white"
                   >
-                    {speed === 1.0 ? 'Normal' : `${speed}x`}
-                  </button>
-                ))}
+                    {voices.map((v) => (
+                      <option key={v.name} value={v.name}>
+                        {v.name.replace('Microsoft', '').replace('Google', '').trim()} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                  <span>SES HIZI CONTROLLER</span>
+                  <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{playbackSpeed}x</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[0.8, 1.0, 1.25, 1.5].map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => changeSpeed(speed)}
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-extrabold transition ${
+                        playbackSpeed === speed
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {speed === 1.0 ? 'Normal' : `${speed}x`}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
