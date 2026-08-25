@@ -18,8 +18,23 @@ export default function StudyPlanner({ apiKeyConfig }) {
   const [selectedDay, setSelectedDay] = useState('Pazartesi');
 
   const subjectsList = [
-    'Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 
-    'Türkçe & Edebiyat', 'Tarih', 'Coğrafya', 'Felsefe & Din'
+    'Matematik', 
+    'Geometri', 
+    'Türkçe', 
+    'Türk Dili ve Edebiyatı',
+    'Fizik', 
+    'Kimya', 
+    'Biyoloji', 
+    'Fen Bilimleri (Ortaokul)',
+    'Tarih', 
+    'T.C. İnkılap Tarihi', 
+    'Coğrafya', 
+    'Felsefe',
+    'Sosyal Bilgiler (Ortaokul)',
+    'Din Kültürü ve Ahlak Bilgisi',
+    'İngilizce (Yabancı Dil)', 
+    'Almanca (2. Yabancı Dil)',
+    'Bilişim Teknolojileri'
   ];
 
   const examsList = ['YKS', 'LGS', 'Okul Sınavları', 'KPSS', 'DGS', 'Lise Sınavları', 'Diğer'];
