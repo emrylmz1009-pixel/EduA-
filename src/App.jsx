@@ -25,7 +25,8 @@ import {
   Target,
   Music,
   FileText,
-  MessageSquare
+  MessageSquare,
+  WifiOff
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -48,6 +49,7 @@ import FocusRoom from './components/FocusRoom';
 import PdfGenerator from './components/PdfGenerator';
 import AITutorChat from './components/AITutorChat';
 import MebObjectives from './components/MebObjectives';
+import { cryptoService } from './utils/crypto';
 import schoolsData from './data/schools.json';
 
 export default function App() {
@@ -92,23 +94,10 @@ export default function App() {
     flashcardsMastered: 0
   });
 
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+
   // Load Profile, Settings, and Stats on Mount
   useEffect(() => {
-    // API config
-    const provider = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
-    const apiKey = localStorage.getItem('eduai_api_key') || (provider === 'gemini' ? import.meta.env.VITE_GEMINI_API_KEY : import.meta.env.VITE_OPENAI_API_KEY) || '';
-    let model = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || (provider === 'gemini' ? 'gemini-3.6-flash' : 'gpt-4o-mini');
-    
-    // Auto-migrate legacy model names
-    if (model === 'gemini-1.5-flash' || model === 'gemini-1.5-pro') {
-      model = 'gemini-3.6-flash';
-      localStorage.setItem('eduai_model', 'gemini-3.6-flash');
-    }
-
-    if (apiKey) {
-      setApiKeyConfig({ provider, apiKey, model });
-    }
-
     // Stats
     const storedStats = localStorage.getItem('eduai_stats');
     if (storedStats) {
@@ -117,39 +106,51 @@ export default function App() {
       recalculateStats();
     }
 
-    // Profile & IP Auto-Login
-    const storedProfile = localStorage.getItem('eduai_profile');
-    if (storedProfile) {
-      const parsedProfile = JSON.parse(storedProfile);
-      setProfile(parsedProfile);
+    // Check if session is already unlocked in this tab
+    const cachedProfileStr = sessionStorage.getItem('eduai_decrypted_profile');
+    const encryptedProfile = localStorage.getItem('eduai_profile_encrypted');
+    
+    if (cachedProfileStr) {
+      const parsed = JSON.parse(cachedProfileStr);
+      setProfile(parsed);
       setIsLoggedIn(true);
+      setSessionUnlocked(true);
       
-      // Background IP auto login check to bypass or enforce 2FA verification
-      setCheckingIp(true);
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          // If IP matches the registered IP, auto-login and unlock instantly!
-          if (data.ip === parsedProfile.ip) {
-            setSessionUnlocked(true);
-            sessionStorage.setItem('eduai_session_unlocked', 'true');
-          } else {
-            // IP mismatch: Lock session and require verification code
-            // Unless already unlocked in sessionStorage for this tab session
-            const wasUnlocked = sessionStorage.getItem('eduai_session_unlocked') === 'true';
-            setSessionUnlocked(wasUnlocked);
-          }
-        })
-        .catch(err => {
-          console.error("IP check failed (offline/blocked), falling back to sessionStorage check:", err);
-          // Secure fallback: use sessionStorage state
-          const wasUnlocked = sessionStorage.getItem('eduai_session_unlocked') === 'true';
-          setSessionUnlocked(wasUnlocked);
-        })
-        .finally(() => {
-          setCheckingIp(false);
-        });
+      // Load API Keys using PIN from cached profile
+      const provider = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
+      const encryptedKey = localStorage.getItem('eduai_api_key');
+      let activeKey = '';
+      if (encryptedKey) {
+        activeKey = cryptoService.decrypt(encryptedKey, parsed.pin) || '';
+      } else {
+        activeKey = (provider === 'gemini' ? import.meta.env.VITE_GEMINI_API_KEY : import.meta.env.VITE_OPENAI_API_KEY) || '';
+      }
+      
+      let model = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || 'gemini-3.6-flash';
+      if (model === 'gemini-1.5-flash' || model === 'gemini-1.5-pro') {
+        model = 'gemini-3.6-flash';
+        localStorage.setItem('eduai_model', 'gemini-3.6-flash');
+      }
+      
+      if (activeKey) {
+        setApiKeyConfig({ provider, apiKey: activeKey, model });
+      }
+    } else if (encryptedProfile) {
+      setIsLoggedIn(true);
+      setSessionUnlocked(false);
     }
+
+    // Offline / Online listeners
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const recalculateStats = () => {
@@ -221,16 +222,22 @@ export default function App() {
       pin: regPin.trim()
     };
 
-    localStorage.setItem('eduai_profile', JSON.stringify(newProfile));
+    // Encrypt and store profile details (KVKK Compliant local storage protection)
+    const encryptedProfile = cryptoService.encrypt(JSON.stringify(newProfile), regPin.trim());
+    localStorage.setItem('eduai_profile_encrypted', encryptedProfile);
+    localStorage.removeItem('eduai_profile'); // Remove legacy unencrypted profile
+
+    sessionStorage.setItem('eduai_decrypted_profile', JSON.stringify(newProfile));
+    sessionStorage.setItem('eduai_session_unlocked', 'true');
+
     setProfile(newProfile);
     setIsLoggedIn(true);
     setSessionUnlocked(true);
-    sessionStorage.setItem('eduai_session_unlocked', 'true');
     setRegLoading(false);
     
     // Reset states
     setRegPin('');
-    alert('Kayıt işleminiz ve cihaz tanıma kurulumu başarıyla tamamlandı!');
+    alert('Kayıt işleminiz (PIN/KVKK şifreli korumalı) başarıyla tamamlandı!');
   };
 
   const handleLoginVerification = (e) => {
@@ -241,32 +248,55 @@ export default function App() {
       return;
     }
 
-    if (token === profile?.pin) {
-      setSessionUnlocked(true);
-      sessionStorage.setItem('eduai_session_unlocked', 'true');
-      
-      // Update registered IP to current IP so they bypass verification next time
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          const updatedProfile = { ...profile, ip: data.ip };
-          setProfile(updatedProfile);
-          localStorage.setItem('eduai_profile', JSON.stringify(updatedProfile));
-        })
-        .catch(err => console.warn("Could not update profile IP automatically:", err));
+    const encryptedProfile = localStorage.getItem('eduai_profile_encrypted');
+    if (encryptedProfile) {
+      try {
+        const decryptedStr = cryptoService.decrypt(encryptedProfile, token);
+        if (!decryptedStr) {
+          throw new Error("Invalid decryption");
+        }
+        const decryptedProfile = JSON.parse(decryptedStr);
+        
+        // Decryption successful! PIN is verified.
+        setProfile(decryptedProfile);
+        setSessionUnlocked(true);
+        sessionStorage.setItem('eduai_session_unlocked', 'true');
+        sessionStorage.setItem('eduai_decrypted_profile', JSON.stringify(decryptedProfile));
 
-      setPinInput('');
-      setPinError('');
+        // Load API Keys now that we have the PIN
+        const provider = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
+        const encryptedKey = localStorage.getItem('eduai_api_key');
+        let activeKey = '';
+        if (encryptedKey) {
+          activeKey = cryptoService.decrypt(encryptedKey, token) || '';
+        } else {
+          activeKey = (provider === 'gemini' ? import.meta.env.VITE_GEMINI_API_KEY : import.meta.env.VITE_OPENAI_API_KEY) || '';
+        }
+        
+        const model = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || 'gemini-3.6-flash';
+        if (activeKey) {
+          setApiKeyConfig({ provider, apiKey: activeKey, model });
+        }
+
+        setPinInput('');
+        setPinError('');
+      } catch (err) {
+        console.error("PIN verification failed:", err);
+        setPinError('Girdiğiniz güvenlik PIN kodu hatalı. Lütfen tekrar deneyin.');
+      }
     } else {
-      setPinError('Girdiğiniz güvenlik kodu hatalı. Lütfen tekrar deneyin.');
+      setPinError('Kayıtlı profil bulunamadı.');
     }
   };
 
   const handleLogout = () => {
-    if (confirm('Oturum kapatılacaktır. Tekrar giriş yapmak için cihaz tanıma veya PIN doğrulamanız gerekecektir. Emin misiniz?')) {
+    if (confirm('Oturum kapatılacaktır. Tekrar giriş yapmak için güvenlik PIN kodunuzu girmeniz gerekecektir. Emin misiniz?')) {
       setIsLoggedIn(false);
       setSessionUnlocked(false);
       sessionStorage.removeItem('eduai_session_unlocked');
+      sessionStorage.removeItem('eduai_decrypted_profile');
+      setProfile(null);
+      setApiKeyConfig(null);
       setPinInput('');
       setPinError('');
     }
@@ -274,7 +304,12 @@ export default function App() {
 
   const handleProfileUpdate = (updatedProfile) => {
     setProfile(updatedProfile);
-    localStorage.setItem('eduai_profile', JSON.stringify(updatedProfile));
+    const pin = updatedProfile.pin || profile?.pin;
+    if (pin) {
+      const encrypted = cryptoService.encrypt(JSON.stringify(updatedProfile), pin);
+      localStorage.setItem('eduai_profile_encrypted', encrypted);
+      sessionStorage.setItem('eduai_decrypted_profile', JSON.stringify(updatedProfile));
+    }
   };
 
   const handlePdfExtracted = (pdfData) => {
@@ -464,7 +499,7 @@ export default function App() {
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1 font-mono">
                 <Key className="w-3.5 h-3.5" />
-                Güvenlik PIN Kodu (6 Haneli Sayısal)
+                Güvenlik PIN Kodu (6 Haneli - Veri Kriptolama Anahtarı)
               </label>
               <input 
                 type="password"
@@ -475,7 +510,7 @@ export default function App() {
                 placeholder="******"
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-center tracking-widest font-mono text-sm outline-none focus:border-indigo-500 transition"
               />
-              <p className="text-[10px] text-slate-400 mt-1">Bu kod, farklı bir cihazdan veya konumdan giriş yaparken kimliğinizi doğrulamak için istenecektir.</p>
+              <p className="text-[10px] text-slate-400 mt-1">Bu kod, KVKK uyumluluğu amacıyla kişisel verilerinizi ve API anahtarlarınızı cihazda şifrelemek için kullanılır. PIN girilmeden veriler asla okunamaz.</p>
             </div>
 
             <button
@@ -559,7 +594,15 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col md:flex-row transition-all duration-300 ${
       isZenMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'
-    }`}>
+    } ${isOffline ? 'pt-8 md:pt-0' : ''}`}>
+      {/* Offline Status Warning Bar */}
+      {isOffline && (
+        <div className="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-1.5 px-4 text-[10px] font-black z-50 flex items-center justify-center gap-2 shadow-md animate-pulse">
+          <WifiOff className="w-3.5 h-3.5" />
+          <span>ÇEVRİMDIŞI MOD: İnternet bağlantınız koptu. Yerel verilerinize erişebilirsiniz fakat yapay zeka özellikleri devre dışıdır.</span>
+        </div>
+      )}
+
       {/* Sidebar - Desktop */}
       {!isZenMode && (
         <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-100 p-6 space-y-8 flex-shrink-0">
@@ -823,6 +866,7 @@ export default function App() {
         {activeTab === 'settings' && (
           <Settings 
             onSettingsSaved={handleSettingsSaved}
+            userPin={profile?.pin}
           />
         )}
       </main>

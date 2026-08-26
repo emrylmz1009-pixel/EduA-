@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Eye, EyeOff, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { aiService } from '../services/ai';
+import { cryptoService } from '../utils/crypto';
 
-export default function Settings({ onSettingsSaved }) {
+export default function Settings({ onSettingsSaved, userPin }) {
   const [provider, setProvider] = useState('gemini');
   const [model, setModel] = useState('gemini-3.6-flash');
   const [showKey, setShowKey] = useState(false);
@@ -69,6 +70,16 @@ export default function Settings({ onSettingsSaved }) {
   };
 
   useEffect(() => {
+    const readKey = (storageKey, defaultVal = '') => {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return defaultVal;
+      if (userPin) {
+        const decrypted = cryptoService.decrypt(raw, userPin);
+        return decrypted || defaultVal;
+      }
+      return raw;
+    };
+
     const savedProv = localStorage.getItem('eduai_provider') || import.meta.env.VITE_DEFAULT_PROVIDER || 'gemini';
     let savedMod = localStorage.getItem('eduai_model') || import.meta.env.VITE_DEFAULT_MODEL || 'gemini-1.5-flash';
     
@@ -79,12 +90,12 @@ export default function Settings({ onSettingsSaved }) {
     }
 
     // Load individual keys
-    const gKey = localStorage.getItem('eduai_gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
-    const oKey = localStorage.getItem('eduai_openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || '';
-    const cKey = localStorage.getItem('eduai_claude_api_key') || '';
-    const dKey = localStorage.getItem('eduai_deepseek_api_key') || '';
-    const grKey = localStorage.getItem('eduai_groq_api_key') || '';
-    const gkKey = localStorage.getItem('eduai_grok_api_key') || '';
+    const gKey = readKey('eduai_gemini_api_key', import.meta.env.VITE_GEMINI_API_KEY || '');
+    const oKey = readKey('eduai_openai_api_key', import.meta.env.VITE_OPENAI_API_KEY || '');
+    const cKey = readKey('eduai_claude_api_key', '');
+    const dKey = readKey('eduai_deepseek_api_key', '');
+    const grKey = readKey('eduai_groq_api_key', '');
+    const gkKey = readKey('eduai_grok_api_key', '');
 
     setGeminiKey(gKey);
     setOpenaiKey(oKey);
@@ -113,7 +124,7 @@ export default function Settings({ onSettingsSaved }) {
         onSettingsSaved({ provider: savedProv, apiKey: activeKey, model: savedMod });
       }
     }
-  }, []);
+  }, [userPin]);
 
   const handleProviderChange = (e) => {
     const prov = e.target.value;
@@ -135,17 +146,25 @@ export default function Settings({ onSettingsSaved }) {
       return;
     }
     
+    const writeKey = (storageKey, val) => {
+      if (userPin) {
+        localStorage.setItem(storageKey, cryptoService.encrypt(val, userPin));
+      } else {
+        localStorage.setItem(storageKey, val);
+      }
+    };
+
     localStorage.setItem('eduai_provider', provider);
-    localStorage.setItem('eduai_api_key', activeKey.trim());
+    writeKey('eduai_api_key', activeKey.trim());
     localStorage.setItem('eduai_model', model);
 
     // Save individual keys
-    localStorage.setItem('eduai_gemini_api_key', geminiKey.trim());
-    localStorage.setItem('eduai_openai_api_key', openaiKey.trim());
-    localStorage.setItem('eduai_claude_api_key', claudeKey.trim());
-    localStorage.setItem('eduai_deepseek_api_key', deepseekKey.trim());
-    localStorage.setItem('eduai_groq_api_key', groqKey.trim());
-    localStorage.setItem('eduai_grok_api_key', grokKey.trim());
+    writeKey('eduai_gemini_api_key', geminiKey.trim());
+    writeKey('eduai_openai_api_key', openaiKey.trim());
+    writeKey('eduai_claude_api_key', claudeKey.trim());
+    writeKey('eduai_deepseek_api_key', deepseekKey.trim());
+    writeKey('eduai_groq_api_key', groqKey.trim());
+    writeKey('eduai_grok_api_key', grokKey.trim());
     
     setSavedSettings({
       provider,

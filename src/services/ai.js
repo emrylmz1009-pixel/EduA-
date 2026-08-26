@@ -39,6 +39,10 @@ function limitTextSize(text, maxChars = 60000) {
 }
 
 async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson = true, mediaData = null) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error("Çevrimdışı Mod: İnternet bağlantısı bulunamadığından yapay zeka özellikleri çalıştırılamıyor. Lütfen internet bağlantınızı kontrol edin.");
+  }
+
   let retries = 3;
   let delay = 1500;
   
@@ -46,6 +50,11 @@ async function callApi(provider, apiKey, model, systemPrompt, userPrompt, isJson
     try {
       return await callApiInner(provider, apiKey, model, systemPrompt, userPrompt, isJson, mediaData);
     } catch (err) {
+      // Sanitize potential API key leaks from error message
+      if (apiKey && err.message) {
+        err.message = err.message.replace(new RegExp(apiKey, 'g'), '[HASSAS_ANAHTAR_KORUNDU]');
+      }
+
       const isRetryable = err.message.toLowerCase().includes('overloaded') || 
                           err.message.toLowerCase().includes('experiencing high demand') || 
                           err.message.toLowerCase().includes('quota exceeded') ||
