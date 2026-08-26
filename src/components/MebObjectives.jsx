@@ -25,9 +25,55 @@ export default function MebObjectives({ apiKeyConfig }) {
 
   // Speech Recognition
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef(null);
-
-  const database = {
+  const recognitionRef = useRef(null);  const database = {
+    '5. Sınıf': {
+      'Matematik': [
+        { code: 'M.5.1.1.1', text: 'En çok dokuz basamaklı doğal sayıları okur ve yazar.' },
+        { code: 'M.5.1.2.1', text: 'En çok beş basamaklı doğal sayılarla toplama ve çıkarma işlemlerini yapar.' },
+        { code: 'M.5.2.1.1', text: 'Paydaları eşit veya birinin paydası diğerinin paydasının katı olan kesirlerle toplama ve çıkarma işlemlerini yapar.' }
+      ],
+      'Fen Bilimleri': [
+        { code: 'F.5.1.1.1', text: 'Güneş’in yapısı ve özelliklerini açıklar.' },
+        { code: 'F.5.2.1.1', text: 'Canlıları benzerlik ve farklılıklarına göre sınıflandırır.' },
+        { code: 'F.5.3.1.1', text: 'Kuvvetin büyüklüğünü dinamometre ile ölçer ve birimini belirtir.' }
+      ]
+    },
+    '6. Sınıf': {
+      'Matematik': [
+        { code: 'M.6.1.1.1', text: 'Doğal sayıların kendisiyle tekrarlı çarpımını üslü nicelik olarak ifade eder.' },
+        { code: 'M.6.1.2.1', text: 'Doğal sayıların çarpanlarını ve katlarını belirler.' },
+        { code: 'M.6.2.1.1', text: 'Tam sayıları tanımlar ve sayı doğrusunda gösterir.' }
+      ],
+      'Fen Bilimleri': [
+        { code: 'F.6.1.1.1', text: 'Güneş sistemindeki gezegenleri birbirleriyle karşılaştırır.' },
+        { code: 'F.6.2.1.1', text: 'Destek ve hareket sistemine ait yapıları açıklar.' },
+        { code: 'F.6.3.1.1', text: 'Bileşke kuvveti tanımlar ve kuvvetlerin doğrultularını gösterir.' }
+      ]
+    },
+    '7. Sınıf': {
+      'Matematik': [
+        { code: 'M.7.1.1.1', text: 'Tam sayılarla çarpma ve bölme işlemlerini yapar.' },
+        { code: 'M.7.2.1.1', text: 'Rasyonel sayıları tanımlar, sayı doğrusunda gösterir ve ondalık gösterimle ilişkilendirir.' },
+        { code: 'M.7.3.1.1', text: 'Birinci dereceden bir bilinmeyenli denklemleri çözer.' }
+      ],
+      'Fen Bilimleri': [
+        { code: 'F.7.1.1.1', text: 'Uzay araştırmalarındaki teknolojik gelişmeleri ve uzay kirliliğini tartışır.' },
+        { code: 'F.7.2.1.1', text: 'Hücre, doku, organ, sistem ve organizma ilişkisini açıklar.' },
+        { code: 'F.7.3.1.1', text: 'Kütle ve ağırlık kavramlarını karşılaştırarak ilişkilerini yorumlar.' }
+      ]
+    },
+    '8. Sınıf': {
+      'Matematik': [
+        { code: 'M.8.1.1.1', text: 'İki doğal sayının en büyük ortak bölenini (EBOB) ve en küçük ortak katını (EKOK) hesaplar.' },
+        { code: 'M.8.1.2.1', text: 'Tam sayıların tam sayı kuvvetlerini hesaplar ve üslü ifadelerle işlem yapar.' },
+        { code: 'M.8.3.1.1', text: 'Basit olayların olma olasılığını hesaplar.' }
+      ],
+      'Fen Bilimleri': [
+        { code: 'F.8.1.1.1', text: 'Mevsimlerin oluşumuna yönelik tahminlerde bulunur.' },
+        { code: 'F.8.2.1.1', text: 'Nükleotid, gen, DNA ve kromozom kavramlarını açıklayarak ilişkilerini kurar.' },
+        { code: 'F.8.3.1.1', text: 'Katı, sıvı ve gaz basıncını etkileyen değişkenleri analiz eder.' }
+      ]
+    },
     '9. Sınıf': {
       'Fizik': [
         { code: 'F.9.1.1.1', text: 'Fizik biliminin önemini, alt dallarını ve diğer disiplinlerle ilişkisini açıklar.' },
@@ -303,7 +349,7 @@ export default function MebObjectives({ apiKeyConfig }) {
                 onChange={(e) => setGrade(e.target.value)}
                 className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 bg-white font-bold text-slate-700"
               >
-                {['9. Sınıf', '10. Sınıf', '11. Sınıf', '12. Sınıf'].map(gr => (
+                {['5. Sınıf', '6. Sınıf', '7. Sınıf', '8. Sınıf', '9. Sınıf', '10. Sınıf', '11. Sınıf', '12. Sınıf'].map(gr => (
                   <option key={gr} value={gr}>{gr}</option>
                 ))}
               </select>
@@ -313,7 +359,7 @@ export default function MebObjectives({ apiKeyConfig }) {
                 onChange={(e) => setSubject(e.target.value)}
                 className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 bg-white font-bold text-slate-700"
               >
-                {['Matematik', 'Fizik', 'Kimya', 'Biyoloji'].map(sub => {
+                {['Matematik', 'Fizik', 'Kimya', 'Biyoloji', 'Fen Bilimleri'].map(sub => {
                   const hasData = database[grade]?.[sub];
                   return (
                     <option key={sub} value={sub} disabled={!hasData}>

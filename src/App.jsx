@@ -575,7 +575,7 @@ export default function App() {
           </div>
 
           {/* Navigation */}
-          <nav className="space-y-1.5 flex-1">
+          <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const disabled = item.requiresDoc && !activeDoc;
@@ -635,7 +635,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden flex justify-end animate-fadeIn" onClick={() => setMobileMenuOpen(false)}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-64 max-w-[80vw] h-full bg-white p-5 flex flex-col space-y-6 shadow-2xl animate-slideInRight"
+            className="w-64 max-w-[80vw] h-full bg-white p-5 flex flex-col space-y-6 shadow-2xl animate-slideInRight overflow-y-auto"
           >
             <div className="flex items-center gap-2">
               <div className="p-2 bg-indigo-600 text-white rounded-xl">
